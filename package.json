@@ -1,0 +1,16 @@
+{
+  "name": "sashimi",
+  "version": "0.0.0",
+  "description": "",
+  "main": "compiler.js",
+  "dependencies": {
+    "js-beautify": "~1.4.2",
+    "optimist": "~0.6.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "j201 <j201.alex@gmail.com> (http://j201.github.io/)",
+  "license": "MIT"
+}

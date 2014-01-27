@@ -1,0 +1,17 @@
+str = "foo";
+regex = /foo/g;
+number = 2;
+
+sumSign = fn a, b:
+	let sum a + b:
+		if sum > 0: "+",
+		if sum < 0: "-",
+			"0";
+
+negate = fn x: -x;
+
+myFn = fn a, b:
+	sumSign(negate(a), b);
+
+thing = fn x:
+	(x = 1, x = 2);
