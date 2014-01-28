@@ -3,7 +3,7 @@ var sashimiCore = {};
 sashimiCore.Map = function() {
 };
 
-sashimiCore.Vector = function() {
+sashimiCore.List = function() {
 	var vec = function(i) {
 		return vec.data[i];
 	};

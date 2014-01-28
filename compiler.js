@@ -60,7 +60,7 @@ function compile(text) {
 }
 
 function compileStatement(statement, state) {
-	if (statement.type === "assignment" && !statement.property) {
+	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") {
 		if (inScope(statement.assignee, state.scope))
 			throw new Error("Identifier already defined: " + statement.assignee);
 		state.scope[1].add(statement.assignee);
@@ -80,8 +80,12 @@ function compileExpr(expr, scope) {
 		return expr.value;
 	} else if (expr.type === "js") {
 		return expr.value;
+	} else if (expr.type === 'nil') {
+		return 'undefined';
+	} else if (expr.type === 'boolean') {
+		return expr.value;
 	} else if (expr.type === "keyword") {
-		return expr;
+		return "sashimiCore.Keyword('" + expr.value + "')";
 	} else if (expr.type === "identifier") {
 		if (!inScope(expr.value, scope))
 			throw new Error(expr.value + " is not defined." + last(scope).toString());
@@ -92,8 +96,18 @@ function compileExpr(expr, scope) {
 		return compileFn(expr, scope);
 	} else if (expr.type === "let") {
 		return compileLet(expr, scope);
+	} else if (expr.type === 'map') {
+		return 'sashimiCore.Map(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+	} else if (expr.type === 'list') {
+		return 'sashimiCore.List(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+	} else if (expr.type === 'set') {
+		return 'sashimiCore.Set(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+	} else if (expr.type === 'bag') {
+		return 'sashimiCore.Bag(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+	} else if (expr.type === 'mapAccess') {
+		return compileExpr(expr.map, scope) + "(" + compileExpr(expr.key, scope) + ")";
 	} else if (expr.type === "assignment") {
-		return "(" + expr.assignee + "_sa = " + compileExpr(expr.value, scope) + ")"; // TODO: Deal with mapAccess
+		return compileAssignment(expr, scope);
 	} else if (expr.type === "binaryOperation") {
 		return compileBinaryOperation(expr, scope);
 	} else if (expr.type === "unaryOperation") {
@@ -158,4 +172,11 @@ function compileBinaryOperation(expr, scope) {
 	} else {
 		return "(" + compileExpr(expr.operands[0], scope) + expr.operator + compileExpr(expr.operands[1], scope) + ")";
 	}
+}
+
+function compileAssignment(expr, scope) {
+	console.log(expr);
+	if (expr.assignee.type === 'mapAccess')
+		return '((' + compileExpr(expr.assignee.map, scope) + ').set(' + compileExpr(expr.assignee.key, scope) + ',' + compileExpr(expr.value, scope) + ')';
+	return "(" + expr.assignee + "_sa = " + compileExpr(expr.value, scope) + ")";
 }

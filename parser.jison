@@ -1,49 +1,54 @@
 %lex
 %%
 
-\/\/[^\n]+\n	/* ignore comment */
 \"(?:[^\"\\]|\\\"|\\\\)*\" return 'string'
 \/(?:[^\/\\]|\\\/|\\\\)*\/[gi]+ return 'regex'
 \`(?:[^\`]|\`\`)*\`	return 'js'
-\s+			/* ignore */
+\/\/[^\n]+\n	/* ignore comment */
+\/\*[^]+?\*\/	/* ignore comment */
+\s+				/* ignore */
 \-?\d+(?:\.\d*(?:[eE]\-?\d+)?|[eE]\-?\d+)? return 'number'
-\:\w+		return 'keyword'
-'module'	return 'module'
-'import'	return 'import'
-'export'	return 'export'
-'fn'		return 'fn'
-'let'		return 'let'
-'if'		return 'if'
+\:\w+			return 'keyword'
+'module'		return 'module'
+'import'		return 'import'
+'export'		return 'export'
+'fn'			return 'fn'
+'let'			return 'let'
+'if'			return 'if'
+'true'			return 'true'
+'false'			return 'false'
+'nil'			return 'nil'
 [\w\.]*\.[\w\.]* return 'identifierWithPeriods'
-\w+			return 'identifier'
-'('			return '('
-')'			return ')'
-'#{'		return '#{'
-'{'			return '{'
-'}'			return '}'
-'#['		return '#['
-'['			return '['
-']'			return ']'
-'&'			return '&'
-'+'			return '+'
-'-'			return '-'
-'/'			return '/'
-'*'			return '*'
-'^'			return '^'
-'&'			return '&'
-'|'			return '|'
-'!'			return '!'
-';'			return ';'
-','			return ','
-'.'			return '.'
-'<='		return '<='
-'>='		return '>='
-'<'			return '<'
-'>'			return '>'
-'=='		return '=='
-'!='		return '!='
-'='			return '='
-':'			return ':'
+\w+				return 'identifier'
+'\'('			return '\'('
+'('				return '('
+')'				return ')'
+'#{'			return '#{'
+'{'				return '{'
+'}'				return '}'
+'#['			return '#['
+'['				return '['
+']'				return ']'
+'&'				return '&'
+'+'				return '+'
+'-'				return '-'
+'/'				return '/'
+'*'				return '*'
+'^'				return '^'
+'&'				return '&'
+'|'				return '|'
+'!'				return '!'
+';'				return ';'
+','				return ','
+'.'				return '.'
+'<='			return '<='
+'>='			return '>='
+'<'				return '<'
+'>'				return '>'
+'=='			return '=='
+'!='			return '!='
+'='				return '='
+':'				return ':'
 <<EOF>>	return 'EOF'
 
 /lex
@@ -89,13 +94,15 @@ expr:
 	| regex { $$ = { type: 'regex', value: yytext } }
 	| js { $$ = { type: 'js', value: yytext.slice(1, -1) } }
 	| number { $$ = { type: 'number', value: Number(yytext) } }
-	| keyword { $$ = { type: 'keyword', value: yytext } }
+	| nil { $$ = { type: 'nil' } }
+	| boolean
+	| keywordLiteral
 	| identifier { $$ = { type: 'identifier', value: yytext } }
 	| importExpr
 	| ifExpr
 	| fnExpr
 	| letExpr
-	| map | vector | set | bag
+	| map | list | set | bag
 	| mapAccess
 	| binaryOperation
 	| unaryOperation
@@ -106,6 +113,11 @@ expr:
 
 exprOptionalComma: expr | expr ',';
 
+exprsOptionalComma:
+	exprOptionalComma { $$ = [$1] }
+	| exprOptionalComma exprOptionalComma { $1.push($2); $$ = $1; }
+;
+
 separatedExprs:
 	expr ',' { $$ = [$1] }
 	| separatedExprs expr ',' { $1.push($2); $$ = $1; }
@@ -115,6 +127,13 @@ delimitedExprs: /* Separated exprs where the last one doesn't have a comma */
 	expr { $$ = [$1] }
 	| separatedExprs expr { $1.push($2); $$ = $1; }
 ;
+
+boolean:
+	true { $$ = { type: 'boolean', value: 'true' }; }
+	| false { $$ = { type: 'boolean', value: 'false' }; }
+;
+
+keywordLiteral: keyword { $$ = { type: 'keyword', value: yytext.slice(1) } };
 
 importExpr: 'import' moduleIdentifier { $$ = { type: 'import', name: $2 } };
 
@@ -152,13 +171,13 @@ restParam: '&' identifier { $$ = { name: $2, rest: true } };
 
 map: '{' delimitedExprs '}' { $$ = { type: 'map', arguments: $2 } };
 
-vector: '[' delimitedExpr ']' { $$ = { type: 'vector', arguments: $2 } };
+list: '[' delimitedExprs ']' { $$ = { type: 'list', arguments: $2 } };
 
-set: '#{' delimitedExpr '}' { $$ = { type: 'set', arguments: $2 } };
+set: '#{' delimitedExprs '}' { $$ = { type: 'set', arguments: $2 } };
 
-bag: '#[' delimitedExpr ']' { $$ = { type: 'bag', arguments: $2 } };
+bag: '#[' delimitedExprs ']' { $$ = { type: 'bag', arguments: $2 } };
 
-mapAccess: expr keyword { $$ = { type: 'mapAccess', map: $1, key: $2 } };
+mapAccess: expr keywordLiteral { $$ = { type: 'mapAccess', map: $1, key: $2 } };
 
 assignment:
 	identifier '=' expr { $$ = { type: 'assignment', assignee: $1, value: $3 } }
