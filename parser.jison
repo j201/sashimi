@@ -49,12 +49,13 @@
 '!='			return '!='
 '='				return '='
 ':'				return ':'
+'#'				return '#'
 <<EOF>>	return 'EOF'
 
 /lex
 
 %left ';' ','
-%right 'fn'
+%right 'fn' ':'
 %right 'let'
 %right 'if'
 %right '='
@@ -67,8 +68,8 @@
 %right UMINUS
 %right '!'
 %left '(' ')'
-%left keyword
 %left '.'
+%left keyword
 
 %%
 
@@ -107,6 +108,7 @@ expr:
 	| binaryOperation
 	| unaryOperation
 	| assignment
+	| expr '.' expr { $$ = { type: "dotExpression", caller: $1, function: $3 } } /* Note: MUST be of the form expr.expr(...) */
 	| expr '(' delimitedExprs ')' { $$ = { type: 'functionCall', function: $1, arguments: $3 } }
 	| '(' delimitedExprs ')' { $$ = { type: 'exprList', value: $2 } }
 ;
@@ -125,7 +127,7 @@ separatedExprs:
 
 delimitedExprs: /* Separated exprs where the last one doesn't have a comma */
 	expr { $$ = [$1] }
-	| separatedExprs expr { $1.push($2); $$ = $1; }
+	| delimitedExprs ',' expr { $1.push($2); $$ = $1; }
 ;
 
 boolean:
@@ -146,9 +148,16 @@ letBindings:
 	| letBindings letBinding { $1.push($2); $$ = $1; }
 ;
 
-letBinding: identifier exprOptionalComma { $$ = { name: $1, value: $2 } };
+letBinding: identifier  '=' exprOptionalComma { $$ = { name: $1, value: $2 } };
 
-fnExpr: 'fn' fnBindings ':' expr { $$ = { type: 'fn', bindings: $2, value: $4 } }; 
+fnExpr: 'fn' fnBodies { $$ = { type: 'fn', bodies: $2 } };
+
+fnBodies:
+	fnBody { $$ = [$1] }
+	| fnBodies ',' fnBody  { $1.push($2); $$ = $1; }
+;
+
+fnBody: fnBindings ':' expr { $$ = { bindings: $1, value: $3 } };
 
 fnBindings:
 	nonRestParams { $$ = $1 }

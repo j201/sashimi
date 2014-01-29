@@ -87,7 +87,7 @@ function compileExpr(expr, scope) {
 	} else if (expr.type === "keyword") {
 		return "sashimiCore.Keyword('" + expr.value + "')";
 	} else if (expr.type === "identifier") {
-		if (!inScope(expr.value, scope))
+		if (!inScope(expr.value, scope)) // TODO: namespace if in core
 			throw new Error(expr.value + " is not defined." + last(scope).toString());
 		return expr.value + "_sa";
 	} else if (expr.type === "if") {
@@ -122,6 +122,7 @@ function compileExpr(expr, scope) {
 }
 
 function compileFn(expr, scope) {
+	// Each body must have a different number of parameters, and only the one with the greatest number of parameters can have a rest parameter
 	var newScope = scope.concat(expr.bindings.reduce(function(set, binding) {
 		if (set.has(binding.name))
 			throw new Error("Duplicate parameter: " + binding.name);
@@ -147,6 +148,38 @@ function compileFn(expr, scope) {
 		"return " + compileExpr(expr.value, newScope) + ";}";
 }
 
+/*
+function compileFnBody(body, scope, multipleBodies) {
+	var newScope = scope.concat(body.bindings.reduce(function(set, binding) {
+		if (set.has(binding.name))
+			throw new Error("Duplicate parameter: " + binding.name);
+		set.add(binding.name);
+		return set;
+	}, strSet()));
+
+	var rest, nonRest = body.bindings;
+	if (last(body.bindings).rest) {
+		rest = last(body.bindings);
+		nonRest = body.bindings.slice(0, -1);
+	}
+
+	if (multipleBodies)
+		 (rest ? "else" : "if (arguments.length ===" + body.bindings.length + ")")
+	
+	
+	"function(" +
+		nonRest.map(function(binding) { return binding.name + "_sa"; }).join(", ") +
+		") {" +
+		(rest ? "var " + rest.name + "_sa = Array.prototype.slice.call(arguments, " + nonRest.length + ");" : "") +
+		nonRest.map(function(binding) {
+			return 'default' in binding ?
+				"if (" + binding.name + "_sa === undefined) " + binding.name + "_sa = " + compileExpr(binding.default, newScope) + ";" :
+				"";
+		}).join('') +
+		"return " + compileExpr(expr.value, newScope) + ";}";
+}
+*/
+
 function compileLet(expr, scope) {
 	var newScope = scope.concat(expr.bindings.reduce(function(set, binding) {
 		if (set.has(binding.name))
@@ -161,6 +194,7 @@ function compileLet(expr, scope) {
 		}).join('') +
 		"return " + compileExpr(expr.value, newScope) + ";}())";
 }
+
 
 function compileBinaryOperation(expr, scope) {
 	if (expr.operator === '&') {
