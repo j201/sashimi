@@ -6,10 +6,17 @@ keyword = :a;
 nilVal = nil;
 
 sumSign = fn a, b:
-	let sum a + b:
+	let sum = a + b:
 		if sum > 0: "+",
 		if sum < 0: "-",
 			"0";
+
+multi = fn[
+	a: a + 0,
+	a, b: a + b
+];
+
+multi(fn x: x, fn x, y: x + y);
 
 negate = fn x: -x;
 

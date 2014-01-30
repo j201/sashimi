@@ -12,6 +12,7 @@
 'module'		return 'module'
 'import'		return 'import'
 'export'		return 'export'
+'mfn'			return 'mfn'	
 'fn'			return 'fn'
 'let'			return 'let'
 'if'			return 'if'
@@ -102,6 +103,7 @@ expr:
 	| importExpr
 	| ifExpr
 	| fnExpr
+	| mfnExpr
 	| letExpr
 	| map | list | set | bag
 	| mapAccess
@@ -127,7 +129,7 @@ separatedExprs:
 
 delimitedExprs: /* Separated exprs where the last one doesn't have a comma */
 	expr { $$ = [$1] }
-	| delimitedExprs ',' expr { $1.push($2); $$ = $1; }
+	| delimitedExprs ',' expr { $1.push($3); $$ = $1; }
 ;
 
 boolean:
@@ -150,11 +152,14 @@ letBindings:
 
 letBinding: identifier  '=' exprOptionalComma { $$ = { name: $1, value: $2 } };
 
-fnExpr: 'fn' fnBodies { $$ = { type: 'fn', bodies: $2 } };
+fnExpr:
+	'fn' fnBody { $$ = { type: 'fn', bodies: [$2] } }
+	| 'fn' '[' fnBodies ']' { $$ = { type: 'fn', bodies: $3 } }
+;
 
 fnBodies:
 	fnBody { $$ = [$1] }
-	| fnBodies ',' fnBody  { $1.push($2); $$ = $1; }
+	| fnBodies ',' fnBody  { $1.push($3); $$ = $1; }
 ;
 
 fnBody: fnBindings ':' expr { $$ = { bindings: $1, value: $3 } };

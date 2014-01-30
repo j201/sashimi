@@ -2,6 +2,13 @@ var parse = require('./parser').parse;
 var argv = require('optimist').argv;
 var fs = require('fs');
 var beautify = require('js-beautify').js_beautify;
+var L = require('lodash');
+
+L.mixin({ repeat: function(times, value) {
+		var result = [];
+		for (var i = 0; i < times; i++) result.push(value);
+		return result;
+}});
 
 var files = argv._;
 
@@ -14,7 +21,6 @@ fs.readFile(files[0], "utf-8", function(err, text) {
 	console.log(beautify(compile(text)));
 });
 
-// Utilities
 function strSet() {
 	var data = {};
 	var api = {
@@ -27,19 +33,10 @@ function strSet() {
 	return api;
 }
 
-function last(arr) { return arr[arr.length - 1]; }
-
 function log() {
 	console.log.apply(console, arguments);
 	return arguments[0];
 }
-
-function duplicate(arr) { // If there's a duplicate in an array, returns it, else null
-	if (arr.length <= 1) return null;
-	var rest = arr.slice(1);
-	return rest.indexOf(arr[0]) !== -1 ? arr[0] : duplicate(rest);
-}
-// End utilities
 
 var initialState = {
 	js: "",
@@ -88,7 +85,7 @@ function compileExpr(expr, scope) {
 		return "sashimiCore.Keyword('" + expr.value + "')";
 	} else if (expr.type === "identifier") {
 		if (!inScope(expr.value, scope)) // TODO: namespace if in core
-			throw new Error(expr.value + " is not defined." + last(scope).toString());
+			throw new Error(expr.value + " is not defined." + L.last(scope).toString());
 		return expr.value + "_sa";
 	} else if (expr.type === "if") {
 		return "(" + compileExpr(expr.condition, scope) + " ? " + compileExpr(expr.consequent, scope) + " : " + compileExpr(expr.alternative, scope) + ")"; // TODO: might need more parens
@@ -123,33 +120,21 @@ function compileExpr(expr, scope) {
 
 function compileFn(expr, scope) {
 	// Each body must have a different number of parameters, and only the one with the greatest number of parameters can have a rest parameter
-	var newScope = scope.concat(expr.bindings.reduce(function(set, binding) {
-		if (set.has(binding.name))
-			throw new Error("Duplicate parameter: " + binding.name);
-		set.add(binding.name);
-		return set;
-	}, strSet()));
-
-	var rest, nonRest = expr.bindings;
-	if (last(expr.bindings).rest) {
-		rest = last(expr.bindings);
-		nonRest = expr.bindings.slice(0, -1);
+	if (expr.bodies.length === 1) {
+		var nonRest = L.last(expr.bodies[0].bindings).rest ? expr.bodies[0].bindings : expr.bodies[0].bindings.slice(0, -1);
+		return "function(" +
+			nonRest.map(function(binding) { return binding.name + "_sa"; }).join(", ") +
+			") {" +
+			compileFnBody(expr.bodies[0], scope, false);
 	}
 
-	return "function(" +
-		nonRest.map(function(binding) { return binding.name + "_sa"; }).join(", ") +
-		") {" +
-		(rest ? "var " + rest.name + "_sa = Array.prototype.slice.call(arguments, " + nonRest.length + ");" : "") +
-		nonRest.map(function(binding) {
-			return 'default' in binding ?
-				"if (" + binding.name + "_sa === undefined) " + binding.name + "_sa = " + compileExpr(binding.default, newScope) + ";" :
-				"";
-		}).join('') +
-		"return " + compileExpr(expr.value, newScope) + ";}";
+	return "function(){" +
+		expr.bodies.map(function(body) { return compileFnBody(body, scope, true); }).join('') +
+		"else { throw new Error('fn is not defined for the given number of arguments.'); }}";
 }
 
-/*
 function compileFnBody(body, scope, multipleBodies) {
+	console.log(body);
 	var newScope = scope.concat(body.bindings.reduce(function(set, binding) {
 		if (set.has(binding.name))
 			throw new Error("Duplicate parameter: " + binding.name);
@@ -158,27 +143,29 @@ function compileFnBody(body, scope, multipleBodies) {
 	}, strSet()));
 
 	var rest, nonRest = body.bindings;
-	if (last(body.bindings).rest) {
-		rest = last(body.bindings);
+	if (L.last(body.bindings).rest) {
+		rest = L.last(body.bindings);
 		nonRest = body.bindings.slice(0, -1);
 	}
 
-	if (multipleBodies)
-		 (rest ? "else" : "if (arguments.length ===" + body.bindings.length + ")")
-	
-	
-	"function(" +
-		nonRest.map(function(binding) { return binding.name + "_sa"; }).join(", ") +
-		") {" +
-		(rest ? "var " + rest.name + "_sa = Array.prototype.slice.call(arguments, " + nonRest.length + ");" : "") +
-		nonRest.map(function(binding) {
-			return 'default' in binding ?
-				"if (" + binding.name + "_sa === undefined) " + binding.name + "_sa = " + compileExpr(binding.default, newScope) + ";" :
-				"";
-		}).join('') +
-		"return " + compileExpr(expr.value, newScope) + ";}";
+	bodyText = "";
+	if (multipleBodies) {
+		bodyText += "if (arguments.length " + (rest ? ">" : "===") + nonRest.length + ") {";
+		bodyText += "var " + nonRest.map(function(binding, i) { return binding.name + "_sa = arguments[" + i + "]"; }).join(", ");
+	}
+
+	if (rest)
+		bodyText += "var " + rest.name + "_sa = Array.prototype.slice.call(arguments, " + nonRest.length + ");";
+
+	bodyText += nonRest.map(function(binding) {
+		return 'default' in binding ?
+			"if (" + binding.name + "_sa === undefined) " + binding.name + "_sa = " + compileExpr(binding.default, newScope) + ";" :
+			"";
+	}).join('') +
+		"return " + compileExpr(body.value, newScope) + ";}";
+
+	return bodyText;
 }
-*/
 
 function compileLet(expr, scope) {
 	var newScope = scope.concat(expr.bindings.reduce(function(set, binding) {

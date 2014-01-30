@@ -5,7 +5,8 @@
   "main": "compiler.js",
   "dependencies": {
     "js-beautify": "~1.4.2",
-    "optimist": "~0.6.0"
+    "optimist": "~0.6.0",
+		"lodash": "~2.4.1"
   },
   "devDependencies": {},
   "scripts": {
