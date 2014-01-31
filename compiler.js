@@ -108,7 +108,7 @@ function compileExpr(expr, scope) {
 	} else if (expr.type === "binaryOperation") {
 		return compileBinaryOperation(expr, scope);
 	} else if (expr.type === "unaryOperation") {
-		return '(' + expr.operator + compileExpr(expr.operand, scope) + ')'; // TODO: move into its own fn to do toBool when necessary
+		return compileUnaryOperation(expr, scope);
 	} else if (expr.type === "chain") {
 		return compileChain(expr, scope);
 	} else if (expr.type === "functionCall") {
@@ -121,7 +121,6 @@ function compileExpr(expr, scope) {
 }
 
 function compileFn(expr, scope) {
-	// Each body must have a different number of parameters, and only the one with the greatest number of parameters can have a rest parameter
 	if (expr.bodies.length === 1) {
 		var nonRest = L.last(expr.bodies[0].bindings).rest ? expr.bodies[0].bindings : expr.bodies[0].bindings.slice(0, -1);
 		return "function(" +
@@ -130,13 +129,20 @@ function compileFn(expr, scope) {
 			compileFnBody(expr.bodies[0], scope, false);
 	}
 
+	// Each body must have a different number of parameters, and only the one with the greatest number of parameters can have a rest parameter
+	var lengths = expr.bodies.map(function(body) { return body.bindings.length; });
+	var maxLength = L.max(lengths);
+	if (lengths.length !== L.uniq(lengths).length)
+		throw Error("Multiple function bodies with the same number of parameters");
+	if (expr.bodies.some(function(body) { return body.bindings.length !== maxLength && L.last(body.bindings).rest; }))
+		throw Error("Rest parameter must be on function body with the most parameters");
+
 	return "function(){" +
 		expr.bodies.map(function(body) { return compileFnBody(body, scope, true); }).join('') +
 		"else { throw Error('fn is not defined for the given number of arguments.'); }}";
 }
 
 function compileFnBody(body, scope, multipleBodies) {
-	console.log(body);
 	var newScope = scope.concat(body.bindings.reduce(function(set, binding) {
 		if (set.has(binding.name))
 			throw Error("Duplicate parameter: " + binding.name);
@@ -196,6 +202,12 @@ function compileBinaryOperation(expr, scope) {
 		return "(" + compileExpr(expr.operands[0], scope) + expr.operator + compileExpr(expr.operands[1], scope) + ")";
 	}
 }
+
+function compileUnaryOperation(expr, scope) {
+	if (expr.operator === '!')
+		return "(!sashimiCore.toBool(" + compileExpr(expr.operand, scope) + "))";
+	return '(' + expr.operator + compileExpr(expr.operand, scope) + ')';
+}	
 
 function compileAssignment(expr, scope) {
 	if (expr.assignee.type === 'mapAccess')

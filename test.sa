@@ -13,7 +13,8 @@ sumSign = fn a, b:
 
 multi = fn[
 	a: a + 0,
-	a, b: a + b
+	a, b: a + b,
+	a, b, c: a - c
 ];
 
 multi(fn x: x, fn x, y: x + y);
@@ -35,5 +36,4 @@ myMap.c = 3;
 
 `console.log('done')`;
 
-myMap^myFn(2);
-myMap^myFn;
+!myMap^myFn(2);
