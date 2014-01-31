@@ -2,7 +2,7 @@ str = "foo";
 regex = /foo/g;
 number = 2;
 bool = true;
-keyword = :a;
+keyword = .a;
 nilVal = nil;
 
 sumSign = fn a, b:
@@ -27,10 +27,13 @@ thing = fn x:
 	(x = 1, x = 2);
 
 myVec = [1, 2, 3];
-myMap = {:a, 1, :b, 2};
+myMap = {.a, 1, .b, 2};
 
-myFn(myMap:a:b);
+myFn(myMap.a.b);
 
-myMap:c = 3;
+myMap.c = 3;
 
 `console.log('done')`;
+
+myMap^myFn(2);
+myMap^myFn;

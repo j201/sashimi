@@ -8,19 +8,9 @@ An altjs in progress...
 
 - module system
 - core lib implementation
-- multiple function bodies
-- only have assignments in lets, for maps (and maybe lists), and top-level defines
 - special js module
-- change the colon into an operator?
+- runtime type dispatch
 
 ###Possible future features:
 
 - loop/recur
-- multimethods
-	- every composite data type will have a internal type parameter, which multimethods will dispatch on
-	- new (namespaced) types can be defined
-- lazy sequences
-
-###To remove:
-
-- JS code can be embedded in ` `

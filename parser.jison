@@ -8,18 +8,17 @@
 \/\*[^]+?\*\/	/* ignore comment */
 \s+				/* ignore */
 \-?\d+(?:\.\d*(?:[eE]\-?\d+)?|[eE]\-?\d+)? return 'number'
-\:\w+			return 'keyword'
+/* \:\w+			return 'keyword' */
 'module'		return 'module'
 'import'		return 'import'
 'export'		return 'export'
-'mfn'			return 'mfn'	
 'fn'			return 'fn'
 'let'			return 'let'
 'if'			return 'if'
 'true'			return 'true'
 'false'			return 'false'
 'nil'			return 'nil'
-[\w\.]*\.[\w\.]* return 'identifierWithPeriods'
+/* [\w\.]*\.[\w\.]* return 'identifierWithPeriods' */
 \w+				return 'identifier'
 '\'('			return '\'('
 '('				return '('
@@ -50,6 +49,7 @@
 '!='			return '!='
 '='				return '='
 ':'				return ':'
+'^'				return '^'
 '#'				return '#'
 <<EOF>>	return 'EOF'
 
@@ -65,12 +65,11 @@
 %left '<=' '>=' '<' '>' '==' '!='
 %left '+' '-'
 %left '*' '/'
-%left '^'
 %right UMINUS
 %right '!'
+%left '^'
 %left '(' ')'
 %left '.'
-%left keyword
 
 %%
 
@@ -98,19 +97,18 @@ expr:
 	| number { $$ = { type: 'number', value: Number(yytext) } }
 	| nil { $$ = { type: 'nil' } }
 	| boolean
-	| keywordLiteral
+	| keyword
 	| identifier { $$ = { type: 'identifier', value: yytext } }
 	| importExpr
 	| ifExpr
 	| fnExpr
-	| mfnExpr
 	| letExpr
 	| map | list | set | bag
 	| mapAccess
 	| binaryOperation
 	| unaryOperation
 	| assignment
-	| expr '.' expr { $$ = { type: "dotExpression", caller: $1, function: $3 } } /* Note: MUST be of the form expr.expr(...) */
+	| expr '^' expr { $$ = { type: "chain", caller: $1, function: $3 } } /* Note: MUST be of the form expr.expr(...) */
 	| expr '(' delimitedExprs ')' { $$ = { type: 'functionCall', function: $1, arguments: $3 } }
 	| '(' delimitedExprs ')' { $$ = { type: 'exprList', value: $2 } }
 ;
@@ -137,7 +135,7 @@ boolean:
 	| false { $$ = { type: 'boolean', value: 'false' }; }
 ;
 
-keywordLiteral: keyword { $$ = { type: 'keyword', value: yytext.slice(1) } };
+keyword: '.' identifier { $$ = { type: 'keyword', value: $2 } };
 
 importExpr: 'import' moduleIdentifier { $$ = { type: 'import', name: $2 } };
 
@@ -191,7 +189,7 @@ set: '#{' delimitedExprs '}' { $$ = { type: 'set', arguments: $2 } };
 
 bag: '#[' delimitedExprs ']' { $$ = { type: 'bag', arguments: $2 } };
 
-mapAccess: expr keywordLiteral { $$ = { type: 'mapAccess', map: $1, key: $2 } };
+mapAccess: expr keyword { $$ = { type: 'mapAccess', map: $1, key: $2 } };
 
 assignment:
 	identifier '=' expr { $$ = { type: 'assignment', assignee: $1, value: $3 } }

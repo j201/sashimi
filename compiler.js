@@ -59,7 +59,7 @@ function compile(text) {
 function compileStatement(statement, state) {
 	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") {
 		if (inScope(statement.assignee, state.scope))
-			throw new Error("Identifier already defined: " + statement.assignee);
+			throw Error("Identifier already defined: " + statement.assignee);
 		state.scope[1].add(statement.assignee);
 		state.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, state.scope) + ";";
 	} else {
@@ -85,7 +85,7 @@ function compileExpr(expr, scope) {
 		return "sashimiCore.Keyword('" + expr.value + "')";
 	} else if (expr.type === "identifier") {
 		if (!inScope(expr.value, scope)) // TODO: namespace if in core
-			throw new Error(expr.value + " is not defined." + L.last(scope).toString());
+			throw Error(expr.value + " is not defined." + L.last(scope).toString());
 		return expr.value + "_sa";
 	} else if (expr.type === "if") {
 		return "(" + compileExpr(expr.condition, scope) + " ? " + compileExpr(expr.consequent, scope) + " : " + compileExpr(expr.alternative, scope) + ")"; // TODO: might need more parens
@@ -108,7 +108,9 @@ function compileExpr(expr, scope) {
 	} else if (expr.type === "binaryOperation") {
 		return compileBinaryOperation(expr, scope);
 	} else if (expr.type === "unaryOperation") {
-		return '(' + expr.operator + compileExpr(expr.operand, scope) + ')';
+		return '(' + expr.operator + compileExpr(expr.operand, scope) + ')'; // TODO: move into its own fn to do toBool when necessary
+	} else if (expr.type === "chain") {
+		return compileChain(expr, scope);
 	} else if (expr.type === "functionCall") {
 		return compileExpr(expr.function, scope) + '(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
 	} else if (expr.type === 'exprList') {
@@ -130,14 +132,14 @@ function compileFn(expr, scope) {
 
 	return "function(){" +
 		expr.bodies.map(function(body) { return compileFnBody(body, scope, true); }).join('') +
-		"else { throw new Error('fn is not defined for the given number of arguments.'); }}";
+		"else { throw Error('fn is not defined for the given number of arguments.'); }}";
 }
 
 function compileFnBody(body, scope, multipleBodies) {
 	console.log(body);
 	var newScope = scope.concat(body.bindings.reduce(function(set, binding) {
 		if (set.has(binding.name))
-			throw new Error("Duplicate parameter: " + binding.name);
+			throw Error("Duplicate parameter: " + binding.name);
 		set.add(binding.name);
 		return set;
 	}, strSet()));
@@ -170,7 +172,7 @@ function compileFnBody(body, scope, multipleBodies) {
 function compileLet(expr, scope) {
 	var newScope = scope.concat(expr.bindings.reduce(function(set, binding) {
 		if (set.has(binding.name))
-			throw new Error("Duplicate parameter: " + binding.name);
+			throw Error("Duplicate parameter: " + binding.name);
 		set.add(binding.name);
 		return set;
 	}, strSet()));
@@ -196,8 +198,14 @@ function compileBinaryOperation(expr, scope) {
 }
 
 function compileAssignment(expr, scope) {
-	console.log(expr);
 	if (expr.assignee.type === 'mapAccess')
 		return '((' + compileExpr(expr.assignee.map, scope) + ').set(' + compileExpr(expr.assignee.key, scope) + ',' + compileExpr(expr.value, scope) + ')';
 	return "(" + expr.assignee + "_sa = " + compileExpr(expr.value, scope) + ")";
+}
+
+function compileChain(expr, scope) {
+	if (expr.function.type !== "functionCall")
+		throw Error("A chain expression must include a function call");
+	expr.function.arguments.unshift(expr.caller);
+	return compileExpr(expr.function, scope);
 }
