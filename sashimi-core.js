@@ -1,22 +1,58 @@
-var sashimiCore = {};
+var sashimiCore;
 
-sashimiCore.Map = function() {
-};
+(function(global) {
+	var core = {};
 
-sashimiCore.List = function() {
-	var vec = function(i) {
-		return vec.data[i];
+	function salt(thing) {
+		return thing.type === "Keyword" ? thing.value : thing.type + "_" + toHash(thing);
+	}
+
+	function toHash(thing) {
+		return thing.toString();
+	}
+
+	core.js = function() {
+		var result = function(key) {
+			return global[salt(key)];
+		};
+		result.set = function(key) {
+			return global[salt(key)] = value;
+		};
 	};
-	vec.data = [];
-	return vec;
-};
 
-sashimiCore.Set = function() {
-};
+	core.Map = function() {
+		var data = {};
+		var result = function(key) {
+			return data[salt(key)];
+		};
+		result.set = function(key, value) {
+			return data[salt(key)] = value;
+		};
+		return result;
+	};
 
-sashimiCore.Bag = function() {
-};
+	core.List = function() {
+		var vec = function(i) {
+			return vec.data[i];
+		};
+		vec.data = [];
+		return vec;
+	};
 
-sashimiCore.toBool = function(val) {
-	return val === false || val === null;
-};
+	core.Set = function() {
+	};
+
+	core.Bag = function() {
+	};
+
+	core.Keyword = function(value) {
+		return {
+			type: "Keyword",
+			value: value
+		};
+	};
+
+	core.toBool = function(val) {
+		return val === false || val === null;
+	};
+})(this);
