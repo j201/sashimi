@@ -110,6 +110,7 @@ expr:
 	| assignment
 	| expr '^' expr { $$ = { type: "chain", caller: $1, function: $3 } } /* Note: MUST be of the form expr.expr(...) */
 	| expr '(' delimitedExprs ')' { $$ = { type: 'functionCall', function: $1, arguments: $3 } }
+	| expr '(' ')' { $$ = { type: 'functionCall', function: $1, arguments: [] } }
 	| '(' delimitedExprs ')' { $$ = { type: 'exprList', value: $2 } }
 ;
 
