@@ -82,7 +82,7 @@ function compileExpr(expr, scope) {
 	} else if (expr.type === 'boolean') {
 		return expr.value;
 	} else if (expr.type === "keyword") {
-		return "sashimiCore.Keyword('" + expr.value + "')";
+		return "sashimiInternal.Keyword('" + expr.value + "')";
 	} else if (expr.type === "identifier") {
 		if (!inScope(expr.value, scope)) // TODO: namespace if in core
 			throw Error(expr.value + " is not defined." + L.last(scope).toString());
@@ -94,13 +94,13 @@ function compileExpr(expr, scope) {
 	} else if (expr.type === "let") {
 		return compileLet(expr, scope);
 	} else if (expr.type === 'map') {
-		return 'sashimiCore.Map(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+		return 'sashimiInternal.Map(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
 	} else if (expr.type === 'list') {
-		return 'sashimiCore.List(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+		return 'sashimiInternal.List(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
 	} else if (expr.type === 'set') {
-		return 'sashimiCore.Set(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+		return 'sashimiInternal.Set(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
 	} else if (expr.type === 'bag') {
-		return 'sashimiCore.Bag(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
+		return 'sashimiInternal.Bag(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
 	} else if (expr.type === 'mapAccess') {
 		return compileExpr(expr.map, scope) + "(" + compileExpr(expr.key, scope) + ")";
 	} else if (expr.type === "assignment") {
@@ -194,18 +194,18 @@ function compileLet(expr, scope) {
 function compileBinaryOperation(expr, scope) {
 	if (expr.operator === '&') {
 		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
-			"; return sashimiCore.toBool(op1_sashc) ? op1_sashc :" + compileExpr(expr.operands[1], scope) + ";})()";
+			"; return sashimiInternal.Bool(op1_sashc) ? op1_sashc :" + compileExpr(expr.operands[1], scope) + ";})()";
 	} else if (expr.operator === '|') {
 		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
-			"; return sashimiCore.toBool(op1_sashc) ? " + compileExpr(expr.operands[1], scope) + ": op1_sashc;})()";
+			"; return sashimiInternal.Bool(op1_sashc) ? " + compileExpr(expr.operands[1], scope) + ": op1_sashc;})()";
 	} else {
-		return "(" + compileExpr(expr.operands[0], scope) + expr.operator + compileExpr(expr.operands[1], scope) + ")";
+		return "(" + compileExpr(expr.operands[0], scope) + (expr.operator === '==' ? '===' : expr.operator) + compileExpr(expr.operands[1], scope) + ")";
 	}
 }
 
 function compileUnaryOperation(expr, scope) {
 	if (expr.operator === '!')
-		return "(!sashimiCore.toBool(" + compileExpr(expr.operand, scope) + "))";
+		return "(!sashimiInternal.Bool(" + compileExpr(expr.operand, scope) + "))";
 	return '(' + expr.operator + compileExpr(expr.operand, scope) + ')';
 }	
 
