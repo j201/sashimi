@@ -1,0 +1,30 @@
+module "core";
+
+// Note: this doesn't currently compile, but it will eventually
+
+core = {};
+
+reduce = js.sashimiInternal.reduce;
+
+Map = fn &items:
+	let result = js.sashimiInternal.Map();
+		(for item in items:
+			result.add(item),
+		result);
+
+map = fn list, f:
+	reduce(list, [], fn acc, el:
+		push(acc, f(el)));
+
+filter = fn list, f:
+	reduce(list, [], fn acc, el:
+		if f(el):
+			push(acc, el),
+			acc);
+
+zipWith = fn f, &lists:
+	let outLength = min(map(lists, length)):
+		map(range(outLength), fn i:
+			apply(f, map(lists, fn list: list(i))));
+
+export reduce, map, filter, zipWith;

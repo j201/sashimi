@@ -6,7 +6,7 @@
 \`(?:[^\`]|\`\`)*\`	return 'js'
 \/\/[^\n]+\n	/* ignore comment */
 \/\*[^]+?\*\/	/* ignore comment */
-\s+				/* ignore */
+\s+				/* ignore whitespace */
 \-?\d+(?:\.\d*(?:[eE]\-?\d+)?|[eE]\-?\d+)? return 'number'
 /* \:\w+			return 'keyword' */
 'module'		return 'module'

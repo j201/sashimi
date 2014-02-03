@@ -14,3 +14,5 @@ An altjs in progress...
 ###Possible future features:
 
 - loop/recur
+- inheritance
+- for/in

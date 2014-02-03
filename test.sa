@@ -39,3 +39,5 @@ myMap.c = 3;
 !myMap^myFn(2);
 
 negate();
+
+js.alert(js.document.body);

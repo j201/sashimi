@@ -691,7 +691,7 @@ case 3:/* ignore comment */
 break;
 case 4:/* ignore comment */
 break;
-case 5:/* ignore */
+case 5:/* ignore whitespace */
 break;
 case 6:return 19
 break;
