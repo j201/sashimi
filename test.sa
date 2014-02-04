@@ -41,3 +41,11 @@ myMap.c = 3;
 negate();
 
 js.alert(js.document.body);
+
+type Cons = fn a, b:
+	[a, b];
+
+Cons^length = fn cons:
+	if cons(1) == null:
+		0,
+		1 + length(cons(1));

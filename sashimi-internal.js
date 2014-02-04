@@ -66,27 +66,36 @@ var sashimiInternal;
 		return val === false || val === null;
 	};
 
-	internal.Fn = function(f) {
+	internal.Fn = function(f, thisVal) {
 		var types = {};
-		return {
-			type: "Fn",
-			value: function(firstArg) {
-				if (firstArg && firstArg.type)
-					return (types(firstArg.type) || f).apply(null, arguments);
-				return f.apply(null, arguments);
-			},
-			addDef: function(type, f) {
-				if (types[type])
-					throw Error('Fn definition for type ' + type + ' already exists');
-				types[type] = f;
-			},
-			sashimiVal: true
+		var defaultFn = f || function(firstArg) { throw Error('Fn not defined for ' + firstArg); };
+		var result = function(firstArg) {
+			if (firstArg && firstArg.sashimiVal)
+				return (types(firstArg.type) || defaultFn).apply(thisVal, arguments);
+			return defaultFn.apply(thisVal, arguments);
 		};
+		result.type = "Fn";
+		result.addDef = function(type, f) {
+			if (types[type])
+				throw Error('Fn definition for type ' + type + ' already exists');
+			types[type] = f;
+			return result;
+		};
+		result.hasDefault = Boolean(f);
+		result.setDefault = function(f, newThisVal) {
+			if (result.hasDefault) throw Error('Default fn value already defined');
+			thisVal = newThisVal;
+			defaultFn = f;
+			result.hasDefault = true;
+			return result;
+		};
+		result.sashimiVal = true;
+		return result;
 	};
 
 	internal.JSObject(obj) { // Wraps a js object so it can be used in sashimi
 		var result = function(key) { // Must be a keyword, string, or number
-			return fromJS(obj[key.value]);
+			return fromJS(obj[key.value], obj);
 		};
 		result.set = function(key, value) {
 			return obj[key.value] = toJS(value);
@@ -97,7 +106,7 @@ var sashimiInternal;
 		return val.value || val;
 	};
 
-	function fromJS(val) {
+	function fromJS(val, context) {
 		if (val == null) return undefined;
 		switch(typeof val) {
 			case "number":
@@ -105,7 +114,7 @@ var sashimiInternal;
 			case "boolean":
 				return val;
 			case "function":
-				return internal.Fn(val);
+				return internal.Fn(val, context);
 			default:
 				return internal.JSObject(val);
 		}

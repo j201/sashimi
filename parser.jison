@@ -12,6 +12,7 @@
 'module'		return 'module'
 'import'		return 'import'
 'export'		return 'export'
+'type'			return 'type'
 'fn'			return 'fn'
 'let'			return 'let'
 'if'			return 'if'
@@ -51,10 +52,12 @@
 ':'				return ':'
 '^'				return '^'
 '#'				return '#'
+'~'				return '~'
 <<EOF>>	return 'EOF'
 
 /lex
 
+%left identifier /* THIS MAKES IT WORK AND WAT */
 %left ';' ','
 %right 'fn' ':'
 %right 'let'
@@ -82,13 +85,17 @@ statements :
 	| statements statement { $1.push($2); $$ = $1; }
 ;
 
-statement: moduleStatement | exportStatement | expr ';';
+statement: moduleStatement | exportStatement | typeDeclaration | methodDefinition | expr ';';
 
 moduleStatement: 'module' moduleIdentifier ';' { $$ = { type: 'module', name: $2 } };
 
 moduleIdentifier: identifier | identifierWithPeriods;
 
 exportStatement: 'export' expr ';' { $$ = { type: 'export', value: $2 } };
+
+typeDeclaration: 'type' identifier '=' fnExpr ';' { $$ = { type: 'typeDeclaration', typeName: $2, factory: $4 } };
+
+methodDefinition: identifier '^' identifier '=' fnExpr ';' { $$ = { type: 'methodDefinition', typeName: $1, methodName: $3, value: $5 } };
 
 expr:
 	string { $$ = { type: 'string', value: yytext.slice(1, -1) } }
@@ -216,4 +223,3 @@ unaryOperation:
 	'-' expr { $$ = { type: 'unaryOperation', operator: $1, operand: $2 } }
 	| '!' expr { $$ = { type: 'unaryOperation', operator: $1, operand: $2 } }
 ;
-

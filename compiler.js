@@ -4,6 +4,8 @@ var fs = require('fs');
 var beautify = require('js-beautify').js_beautify;
 var L = require('lodash');
 
+var sashimiCore = {}; // TODO
+
 L.mixin({ repeat: function(times, value) {
 	var result = [];
 	for (var i = 0; i < times; i++) result.push(value);
@@ -40,32 +42,41 @@ function log() {
 
 var initialState = {
 	js: "",
-	scope: [strSet()]
+	scope: [strSet()],
+	types: strSet()
 };
 
 function inScope(name, scope) {
-	return scope.some(function(set) { return set.has(name); });
+	return (name in sashimiCore) || scope.some(function(set) { return set.has(name); });
 }
 
 function compile(text) {
 	console.log(JSON.stringify(parse(text)) + "");
 	return ";(function(){" +
-		parse(text).reduce(function (state, statement) {
-			return compileStatement(statement, state);
+		parse(text).reduce(function (module, statement) {
+			return compileStatement(statement, module);
 		}, initialState).js +
 		"}();";
 }
 
-function compileStatement(statement, state) {
+function compileStatement(statement, module) {
 	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") {
-		if (inScope(statement.assignee, state.scope))
-			throw Error("Identifier already defined: " + statement.assignee);
-		state.scope[0].add(statement.assignee);
-		state.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, state.scope) + ";";
+		if (inScope(statement.assignee, module.scope)) throw Error("Identifier already defined: " + statement.assignee);
+		module.scope[0].add(statement.assignee);
+		module.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, module.scope) + ";";
+	} else if (statement.type === "typeDeclaration") {
+		if (inScope(statement.typeName, module.scope)) throw Error("Identifier already defined: " + statement.typeName);
+		module.scope[0].add(statement.typeName);
+		module.js += "var " + statement.typeName + "_sa = " + compileExpr(statement.factory, module.scope) + ";";
+	} else if (statement.type === "methodDefinition") {
+		if (inScope(statement.methodName, module.scope))
+			return compileIdentifier(statement.methodName) + ".addDef('" + statement.typeName + "'," + compileFn(statement.value, module.scope) + ")";
+		module.scope[0].add(statement.methodName);
+		return 'var ' + statement.methodName + '_sa = sashimiInternal.Fn().addDef(' + statement.typeName + "'," + compileFn(statement.value, module.scope) + ")";
 	} else {
-		state.js += compileExpr(statement, state.scope) + ";";
+		module.js += compileExpr(statement, module.scope) + ";";
 	}
-	return state;
+	return module;
 }
 
 function compileExpr(expr, scope) {
@@ -88,7 +99,7 @@ function compileExpr(expr, scope) {
 	expr.type === "if" ?
 		"(" + compileExpr(expr.condition, scope) + " ? " + compileExpr(expr.consequent, scope) + " : " + compileExpr(expr.alternative, scope) + ")" : // TODO: might need more parens
 	expr.type === "fn" ?
-		compileFn(expr, scope) :
+		'sashimiInternal.Fn(' + compileFn(expr, scope) + ')' :
 	expr.type === "let" ?
 		compileLet(expr, scope) :
 	expr.type === "for" ?
@@ -119,9 +130,7 @@ function compileExpr(expr, scope) {
 }
 
 function compileIdentifier(expr, scope) {
-	if (!inScope(expr.value, scope)) {
-		if (expr.value in sashimiInternal)
-			return "sashimiInternal." + expr.value;
+	if (!scope.some(function(set) { return set.has(expr.value); })) {
 		if (expr.value in sashimiCore)
 			return "sashimiCore." + expr.value;
 		throw Error(expr.value + " is not defined." + L.last(scope).toString());

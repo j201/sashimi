@@ -8,7 +8,6 @@ An altjs in progress...
 
 - module system
 - core lib implementation
-- special js module
 - runtime type dispatch
 
 ###Possible future features:
