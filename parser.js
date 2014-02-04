@@ -92,7 +92,7 @@ case 9: this.$ = { type: 'module', name: $$[$0-1] }
 break;
 case 12: this.$ = { type: 'export', value: $$[$0-1] } 
 break;
-case 13: this.$ = { type: 'typeDeclaration', name: $$[$0-3], factory: $$[$0-1] } 
+case 13: this.$ = { type: 'typeDeclaration', typeName: $$[$0-3], factory: $$[$0-1] } 
 break;
 case 14: this.$ = { type: 'methodDefinition', typeName: $$[$0-5], methodName: $$[$0-3], value: $$[$0-1] } 
 break;

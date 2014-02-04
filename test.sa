@@ -46,6 +46,6 @@ type Cons = fn a, b:
 	[a, b];
 
 Cons^length = fn cons:
-	if cons(1) == null:
+	if cons(1) == nil:
 		0,
 		1 + length(cons(1));

@@ -65,6 +65,7 @@ function compileStatement(statement, module) {
 		module.scope[0].add(statement.assignee);
 		module.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, module.scope) + ";";
 	} else if (statement.type === "typeDeclaration") {
+		console.log(statement);
 		if (inScope(statement.typeName, module.scope)) throw Error("Identifier already defined: " + statement.typeName);
 		module.scope[0].add(statement.typeName);
 		module.js += "var " + statement.typeName + "_sa = " + compileExpr(statement.factory, module.scope) + ";";
@@ -72,7 +73,7 @@ function compileStatement(statement, module) {
 		if (inScope(statement.methodName, module.scope))
 			return compileIdentifier(statement.methodName) + ".addDef('" + statement.typeName + "'," + compileFn(statement.value, module.scope) + ")";
 		module.scope[0].add(statement.methodName);
-		return 'var ' + statement.methodName + '_sa = sashimiInternal.Fn().addDef(' + statement.typeName + "'," + compileFn(statement.value, module.scope) + ")";
+		module.js += 'var ' + statement.methodName + '_sa = sashimiInternal.Fn().addDef("' + statement.typeName + '",' + compileFn(statement.value, module.scope) + ")";
 	} else {
 		module.js += compileExpr(statement, module.scope) + ";";
 	}
@@ -133,7 +134,8 @@ function compileIdentifier(expr, scope) {
 	if (!scope.some(function(set) { return set.has(expr.value); })) {
 		if (expr.value in sashimiCore)
 			return "sashimiCore." + expr.value;
-		throw Error(expr.value + " is not defined." + L.last(scope).toString());
+		console.log(expr);
+		throw Error(expr.value + " is not defined. " + L.last(scope).toString());
 	}
 	return expr.value + "_sa";
 }
