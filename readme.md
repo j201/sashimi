@@ -14,4 +14,6 @@ An altjs in progress...
 
 - loop/recur
 - inheritance
-- for/in
+- lazy sequences
+- data freezing
+- destructuring

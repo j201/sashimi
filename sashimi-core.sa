@@ -2,6 +2,16 @@ module "core";
 
 // Note: this doesn't currently compile, but it will eventually
 
+/*
+Planned core functions:
+General data: count, get, set
+Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range
+Math: add, subtract, multiply, divide, modulo, max, min, floor, ceil
+Logic: and, or, not
+Fns: partial, comp
+Strings: split, replace
+
+
 core = {};
 
 reduce = js.sashimiInternal.reduce;

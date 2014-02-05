@@ -19,7 +19,6 @@
 'true'			return 'true'
 'false'			return 'false'
 'nil'			return 'nil'
-/* [\w\.]*\.[\w\.]* return 'identifierWithPeriods' */
 \w+				return 'identifier'
 '\'('			return '\'('
 '('				return '('
@@ -87,11 +86,12 @@ statements :
 
 statement: moduleStatement | exportStatement | typeDeclaration | methodDefinition | expr ';';
 
-moduleStatement: 'module' moduleIdentifier ';' { $$ = { type: 'module', name: $2 } };
+moduleStatement: 'module' string ';' { $$ = { type: 'module', name: $2 } };
 
-moduleIdentifier: identifier | identifierWithPeriods;
-
-exportStatement: 'export' expr ';' { $$ = { type: 'export', value: $2 } };
+exportStatement:
+	'export' '=' expr ';' { $$ = { type: 'export', value: $3 } }
+	| 'export' identifier '=' expr ';' { $$ = { type: 'exportedDefinition', name: $2, value: $4 } }
+;
 
 typeDeclaration: 'type' identifier '=' fnExpr ';' { $$ = { type: 'typeDeclaration', typeName: $2, factory: $4 } };
 
@@ -145,7 +145,7 @@ boolean:
 
 keyword: '.' identifier { $$ = { type: 'keyword', value: $2 } };
 
-importExpr: 'import' moduleIdentifier { $$ = { type: 'import', name: $2 } };
+importExpr: 'import' string { $$ = { type: 'import', name: $2 } };
 
 ifExpr: 'if' expr ':' expr ',' expr { $$ = { type: 'if', condition: $2, consequent: $4, alternative: $6 } };
 

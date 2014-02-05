@@ -103,8 +103,6 @@ function compileExpr(expr, scope) {
 		'sashimiInternal.Fn(' + compileFn(expr, scope) + ')' :
 	expr.type === "let" ?
 		compileLet(expr, scope) :
-	expr.type === "for" ?
-		compileFor(expr, scope) :
 	expr.type === 'map' ?
 		'sashimiInternal.Map(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
 	expr.type === 'list' ?
