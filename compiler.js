@@ -150,7 +150,7 @@ function compileIdentifier(expr, scope) {
 
 function compileFn(expr, scope) {
 	if (expr.bodies.length === 1) {
-		var nonRest = L.last(expr.bodies[0].bindings).rest ? expr.bodies[0].bindings : expr.bodies[0].bindings.slice(0, -1);
+		var nonRest = expr.bodies[0].bindings.length === 0 ? [] : L.last(expr.bodies[0].bindings).rest ? expr.bodies[0].bindings : expr.bodies[0].bindings.slice(0, -1);
 		return "function(" +
 			nonRest.map(function(binding) { return binding.name + "_sa"; }).join(", ") +
 			") {" +
@@ -179,7 +179,7 @@ function compileFnBody(body, scope, multipleBodies) {
 	}, strSet()));
 
 	var rest, nonRest = body.bindings;
-	if (L.last(body.bindings).rest) {
+	if (body.bindings.length > 0 && L.last(body.bindings).rest) {
 		rest = L.last(body.bindings);
 		nonRest = body.bindings.slice(0, -1);
 	}

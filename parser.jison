@@ -168,11 +168,15 @@ fnBodies:
 	| fnBodies ',' fnBody  { $1.push($3); $$ = $1; }
 ;
 
-fnBody: fnBindings ':' expr { $$ = { bindings: $1, value: $3 } };
+fnBody:
+	fnBindings ':' expr { $$ = { bindings: $1, value: $3 } }
+	| ':' expr { $$ = { bindings: [], value: $2 } }
+;
 
 fnBindings:
 	nonRestParams { $$ = $1 }
 	| nonRestParams restParam { $1.push($2); $$ = $1; }
+	| restParam { $$ = [$1] }
 ;
 
 nonRestParams:
