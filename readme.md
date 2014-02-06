@@ -17,3 +17,4 @@ An altjs in progress...
 - lazy sequences
 - data freezing
 - destructuring
+- when form (à la clojure)

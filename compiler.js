@@ -64,6 +64,11 @@ function compileStatement(statement, module) {
 		if (inScope(statement.assignee, module.scope)) throw Error("Identifier already defined: " + statement.assignee);
 		module.scope[0].add(statement.assignee);
 		module.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, module.scope) + ";";
+	} else if (statement.type === "moduleStatement") {
+		addModule(module);
+		if (statement.name in sashimiInternal.modules) throw Error("Module already defined: " + statement.name);
+		module.name = statement.name;
+		module.export = {};
 	} else if (statement.type === "typeDeclaration") {
 		console.log(statement);
 		if (inScope(statement.typeName, module.scope)) throw Error("Identifier already defined: " + statement.typeName);
@@ -78,6 +83,11 @@ function compileStatement(statement, module) {
 		module.js += compileExpr(statement, module.scope) + ";";
 	}
 	return module;
+}
+
+function addModule(module) {
+	if (!module.name) return;
+	sashimiInternal.modules[module.name] = module.export;
 }
 
 function compileExpr(expr, scope) {

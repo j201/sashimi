@@ -5,36 +5,38 @@ module "core";
 /*
 Planned core functions:
 General data: count, get, set
-Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range
+Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range, in, some, every
+Sets: in
+Maps: keys, values
 Math: add, subtract, multiply, divide, modulo, max, min, floor, ceil
 Logic: and, or, not
 Fns: partial, comp
-Strings: split, replace
+Strings: split, replace, in, indexOf
+Console: prn
+*/
 
+export reduce = js.sashimiInternal.reduce;
 
-core = {};
-
-reduce = js.sashimiInternal.reduce;
-
-Map = fn &items:
+export Map = fn &items:
 	let result = js.sashimiInternal.Map();
 		(for item in items:
 			result.add(item),
 		result);
 
-map = fn list, f:
+export map = fn list, f:
 	reduce(list, [], fn acc, el:
 		push(acc, f(el)));
 
-filter = fn list, f:
+export filter = fn list, f:
 	reduce(list, [], fn acc, el:
 		if f(el):
 			push(acc, el),
 			acc);
 
-zipWith = fn f, &lists:
+export zipWith = fn f, &lists:
 	let outLength = min(map(lists, length)):
 		map(range(outLength), fn i:
 			apply(f, map(lists, fn list: list(i))));
 
-export reduce, map, filter, zipWith;
+export prn = fn &args:
+	(js.console.log.apply(js.console, args), args(0));
