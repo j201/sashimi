@@ -8,11 +8,16 @@ General data: count, get, set
 Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range, in, some, every
 Sets: in
 Maps: keys, values
-Math: add, subtract, multiply, divide, modulo, max, min, floor, ceil
+Math: add, subtract, multiply, divide, modulo, max, min, floor, ceil, binary.add, binary.or, binary.xor, binary.not
 Logic: and, or, not
 Fns: partial, comp
 Strings: split, replace, in, indexOf
 Console: prn
+
+Note: like in js, factories for basic types can take any argument, effectively acting as casts
+They are also extensible for custom types, so for example, to define a custom Type->String operation, one would implement String:
+Cons^String = fn cons:
+	"(" + cons.car^String() + "," + cons.cdr^String() + ")";
 */
 
 export reduce = js.sashimiInternal.reduce;

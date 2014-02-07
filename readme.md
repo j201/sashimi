@@ -18,3 +18,4 @@ An altjs in progress...
 - data freezing
 - destructuring
 - when form (à la clojure)
+- cond/switch form
