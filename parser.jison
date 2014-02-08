@@ -33,6 +33,7 @@
 '+'				return '+'
 '-'				return '-'
 '/'				return '/'
+'**'			return '**'
 '*'				return '*'
 '^'				return '^'
 '&'				return '&'
@@ -67,6 +68,7 @@
 %left '<=' '>=' '<' '>' '==' '!='
 %left '+' '-'
 %left '*' '/'
+%left '**'
 %right UMINUS
 %right '!'
 %left '^'
@@ -212,6 +214,7 @@ binaryOperation:
 	expr '+' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '-' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '/' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
+	| expr '**' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '*' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '&' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '|' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }

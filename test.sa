@@ -32,7 +32,7 @@ myMap = {.a, 1, .b, 2};
 
 myFn(myMap.a.b);
 
-myMap.c = 3;
+myMap.c = 3**4;
 
 `console.log('done')`;
 

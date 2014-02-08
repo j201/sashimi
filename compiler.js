@@ -237,6 +237,8 @@ function compileBinaryOperation(expr, scope) {
 	} else if (expr.operator === '|') {
 		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
 			"; return sashimiInternal.Bool(op1_sashc) ? " + compileExpr(expr.operands[1], scope) + ": op1_sashc;})()";
+	} else if (expr.operator === '**') {
+		return "Math.pow(" + compileExpr(expr.operands[0], scope) + "," + compileExpr(expr.operands[1], scope) + ")";
 	} else {
 		return "(" + compileExpr(expr.operands[0], scope) + (expr.operator === '==' ? '===' : expr.operator) + compileExpr(expr.operands[1], scope) + ")";
 	}
