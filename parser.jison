@@ -57,7 +57,6 @@
 
 /lex
 
-%left identifier /* THIS MAKES IT WORK AND WAT */
 %left ';' ','
 %right 'fn' ':'
 %right 'let'
@@ -86,7 +85,7 @@ statements :
 	| statements statement { $1.push($2); $$ = $1; }
 ;
 
-statement: moduleStatement | exportStatement | typeDeclaration | methodDefinition | expr ';';
+statement: moduleStatement | exportStatement | typeDeclaration | expr ';';
 
 moduleStatement: 'module' string ';' { $$ = { type: 'module', name: $2 } };
 
@@ -96,8 +95,6 @@ exportStatement:
 ;
 
 typeDeclaration: 'type' identifier '=' fnExpr ';' { $$ = { type: 'typeDeclaration', typeName: $2, factory: $4 } };
-
-methodDefinition: identifier '^' identifier '=' fnExpr ';' { $$ = { type: 'methodDefinition', typeName: $1, methodName: $3, value: $5 } };
 
 expr:
 	string { $$ = { type: 'string', value: yytext.slice(1, -1) } }
@@ -117,7 +114,7 @@ expr:
 	| binaryOperation
 	| unaryOperation
 	| assignment
-	| expr '^' expr { $$ = { type: "chain", caller: $1, function: $3 } } /* Note: MUST be of the form expr.expr(...) */
+	| expr '^' expr { $$ = { type: "chain", left: $1, right: $3 } } /* Note: MUST be of the form expr.expr(...) */
 	| expr '(' delimitedExprs ')' { $$ = { type: 'functionCall', function: $1, arguments: $3 } }
 	| expr '(' ')' { $$ = { type: 'functionCall', function: $1, arguments: [] } }
 	| '(' delimitedExprs ')' { $$ = { type: 'exprList', value: $2 } }

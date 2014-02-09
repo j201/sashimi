@@ -60,7 +60,7 @@ function compile(text) {
 }
 
 function compileStatement(statement, module) {
-	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") {
+	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") { // Definition
 		if (inScope(statement.assignee, module.scope)) throw Error("Identifier already defined: " + statement.assignee);
 		module.scope[0].add(statement.assignee);
 		module.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, module.scope) + ";";
@@ -70,15 +70,15 @@ function compileStatement(statement, module) {
 		module.name = statement.name;
 		module.export = {};
 	} else if (statement.type === "typeDeclaration") {
-		console.log(statement);
 		if (inScope(statement.typeName, module.scope)) throw Error("Identifier already defined: " + statement.typeName);
 		module.scope[0].add(statement.typeName);
 		module.js += "var " + statement.typeName + "_sa = " + compileExpr(statement.factory, module.scope) + ";";
-	} else if (statement.type === "methodDefinition") {
-		if (inScope(statement.methodName, module.scope))
-			return compileIdentifier(statement.methodName) + ".addDef('" + statement.typeName + "'," + compileFn(statement.value, module.scope) + ")";
-		module.scope[0].add(statement.methodName);
-		module.js += 'var ' + statement.methodName + '_sa = sashimiInternal.Fn().addDef("' + statement.typeName + '",' + compileFn(statement.value, module.scope) + ")";
+	} else if (statement.type === "chain" && statement.right.type === "assignment") { // Method definition
+		var typeName = statement.left.value, methodName = statement.right.assignee, method = statement.right.value;
+		if (inScope(methodName, module.scope))
+			return compileIdentifier(methodName) + ".addDef('" + typeName + "'," + compileFn(method, module.scope) + ")";
+		module.scope[0].add(methodName);
+		module.js += 'sashimiInternal.' + methodName + ' = sashimiInternal.Fn().addDef("' + typeName + '",' + compileFn(method, module.scope) + ")";
 	} else {
 		module.js += compileExpr(statement, module.scope) + ";";
 	}
@@ -251,8 +251,8 @@ function compileUnaryOperation(expr, scope) {
 }	
 
 function compileChain(expr, scope) {
-	if (expr.function.type !== "functionCall")
+	if (expr.right.type !== "functionCall")
 		throw Error("A chain expression must include a function call");
-	expr.function.arguments.unshift(expr.caller);
-	return compileExpr(expr.function, scope);
+	expr.right.arguments.unshift(expr.left);
+	return compileExpr(expr.right, scope);
 }
