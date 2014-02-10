@@ -18,6 +18,40 @@ var sashimiInternal;
 		return thing.value.toString();
 	}
 
+	/*
+	SObject: [<Sashimi object identifier>: object, type: string, value: any];
+
+	Function dispatch:
+	if val is an SObject
+		if f has type val[1], execute that definition
+		else call f with val[2]
+	else if f has type type(val), execute that definition
+	else if f has default, execute that definition
+	else throw an error
+	*/
+
+	var IDObj = {}; // A unique value for comparison
+	function toSashimiVal(val, type) { // Calls to this should eventually be inline instead, but for now, this will be used for efficiency
+		return [IDObj, type, val];
+	}
+	function isSashimiVal(val) {
+		return val != null && val[0] === IDObj;
+	}
+	function internalVal(val) {
+		return isSashimiVal(val) ? internalVal(val[2]) : val;
+	}
+
+	internal.type = function(val) {
+		if (val == null)
+			return 'Nil';
+		var type = typeof val;
+		return type === "string" ? "String" :
+			type === "number" ? "Number" :
+			type === "boolean" ? "Boolean" :
+			isSashimiVal(val) ? val.type :
+				undefined;
+	};
+
 	internal.Map = function() {
 		var data = {};
 		var result = function(key) {
