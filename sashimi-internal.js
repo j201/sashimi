@@ -48,8 +48,9 @@ var sashimiInternal;
 		return type === "string" ? "String" :
 			type === "number" ? "Number" :
 			type === "boolean" ? "Boolean" :
+			type === "function" ? "Function" :
 			isSashimiVal(val) ? val.type :
-				undefined;
+				undefined; // Note that POOs don't have a sashimi type
 	};
 
 	internal.Map = function() {
@@ -104,9 +105,20 @@ var sashimiInternal;
 		var types = {};
 		var defaultFn = f || function(firstArg) { throw Error('Fn not defined for ' + firstArg); };
 		var result = function(firstArg) {
-			if (firstArg && firstArg.sashimiVal)
-				return (types(firstArg.type) || defaultFn).apply(thisVal, arguments);
-			return defaultFn.apply(thisVal, arguments);
+			if (isSashimiVal(firstArg)) {
+				var typeFn = types[firstArg[1]];
+				if (typeFn)
+					return typeFn.apply(thisVal, arguments);
+				else
+					return result(firstArg[2]);
+			} else {
+				var type = internal.type(firstArg);
+				var typeFn = types[type];
+				if (typeFn)
+					return typeFn.apply(thisVal, arguments);
+				else
+					return defaultFn.apply(thisVal, arguments);
+			}
 		};
 		result.type = "Fn";
 		result.addDef = function(type, f) {
@@ -123,7 +135,6 @@ var sashimiInternal;
 			result.hasDefault = true;
 			return result;
 		};
-		result.sashimiVal = true;
 		return result;
 	};
 
