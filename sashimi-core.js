@@ -4,7 +4,7 @@ var sashimiCore;
 	var core = {};
 
 	function salt(thing) {
-		return thing.type === "Keyword" ? thing.value : thing.type + "_" + toHash(thing);
+		return thing.type + "_" + toHash(thing.value);
 	}
 
 	function toHash(thing) {
@@ -13,10 +13,10 @@ var sashimiCore;
 
 	core.js = function() {
 		var result = function(key) {
-			return global[salt(key)];
+			return global[key.value];
 		};
 		result.set = function(key) {
-			return global[salt(key)] = value;
+			return global[key.value] = value;
 		};
 	};
 
@@ -55,4 +55,6 @@ var sashimiCore;
 	core.toBool = function(val) {
 		return val === false || val === null;
 	};
+
+	sashimiCore = core;
 })(this);
