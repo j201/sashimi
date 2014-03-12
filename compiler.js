@@ -4,10 +4,12 @@ var fs = require('fs');
 var beautify = require('js-beautify').js_beautify;
 var L = require('lodash');
 
+var sashimiCore = {}; // TODO
+
 L.mixin({ repeat: function(times, value) {
-		var result = [];
-		for (var i = 0; i < times; i++) result.push(value);
-		return result;
+	var result = [];
+	for (var i = 0; i < times; i++) result.push(value);
+	return result;
 }});
 
 var files = argv._;
@@ -40,89 +42,115 @@ function log() {
 
 var initialState = {
 	js: "",
-	scope: [strSet(), strSet()]
+	scope: [strSet()],
+	types: strSet()
 };
 
 function inScope(name, scope) {
-	return scope.some(function(set) { return set.has(name); });
+	return (name in sashimiCore) || scope.some(function(set) { return set.has(name); });
 }
 
 function compile(text) {
 	console.log(JSON.stringify(parse(text)) + "");
 	return ";(function(){" +
-		parse(text).reduce(function (state, statement) {
-			return compileStatement(statement, state);
+		parse(text).reduce(function (module, statement) {
+			return compileStatement(statement, module);
 		}, initialState).js +
 		"}();";
 }
 
-function compileStatement(statement, state) {
-	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") {
-		if (inScope(statement.assignee, state.scope))
-			throw Error("Identifier already defined: " + statement.assignee);
-		state.scope[1].add(statement.assignee);
-		state.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, state.scope) + ";";
+function compileStatement(statement, module) {
+	if (statement.type === "assignment" && statement.assignee.type !== "mapAccess") { // Definition
+		if (inScope(statement.assignee, module.scope)) throw Error("Identifier already defined: " + statement.assignee);
+		module.scope[0].add(statement.assignee);
+		module.js += "var " + statement.assignee + "_sa = " + compileExpr(statement.value, module.scope) + ";";
+	} else if (statement.type === "moduleStatement") {
+		addModule(module);
+		if (statement.name in sashimiInternal.modules) throw Error("Module already defined: " + statement.name);
+		module.name = statement.name;
+		module.export = {};
+	} else if (statement.type === "typeDeclaration") {
+		if (inScope(statement.typeName, module.scope)) throw Error("Identifier already defined: " + statement.typeName);
+		module.scope[0].add(statement.typeName);
+		module.js += "var " + statement.typeName + "_sa = " + compileExpr(statement.factory, module.scope) + ";";
+	} else if (statement.type === "chain" && statement.right.type === "assignment") { // Method definition
+		var typeName = statement.left.value, methodName = statement.right.assignee, method = statement.right.value;
+		if (inScope(methodName, module.scope))
+			return compileIdentifier(methodName) + ".addDef('" + typeName + "'," + compileFn(method, module.scope) + ")";
+		module.scope[0].add(methodName);
+		module.js += 'sashimiInternal.' + methodName + ' = sashimiInternal.Fn().addDef("' + typeName + '",' + compileFn(method, module.scope) + ")";
 	} else {
-		state.js += compileExpr(statement, state.scope) + ";";
+		module.js += compileExpr(statement, module.scope) + ";";
 	}
-	return state;
+	return module;
+}
+
+function addModule(module) {
+	if (!module.name) return;
+	sashimiInternal.modules[module.name] = module.export;
 }
 
 function compileExpr(expr, scope) {
-	if (expr.type === "string") {
-		return '"' + expr.value + '"';
-	} else if (expr.type === "regex") {
-		return '(' + expr.value + ')';
-	} else if (expr.type === "number") {
-		return expr.value;
-	} else if (expr.type === "js") {
-		return expr.value;
-	} else if (expr.type === 'nil') {
-		return 'undefined';
-	} else if (expr.type === 'boolean') {
-		return expr.value;
-	} else if (expr.type === "keyword") {
-		return "sashimiCore.Keyword('" + expr.value + "')";
-	} else if (expr.type === "identifier") {
-		if (!inScope(expr.value, scope)) // TODO: namespace if in core
-			throw Error(expr.value + " is not defined." + L.last(scope).toString());
-		return expr.value + "_sa";
-	} else if (expr.type === "if") {
-		return "(" + compileExpr(expr.condition, scope) + " ? " + compileExpr(expr.consequent, scope) + " : " + compileExpr(expr.alternative, scope) + ")"; // TODO: might need more parens
-	} else if (expr.type === "fn") {
-		return compileFn(expr, scope);
-	} else if (expr.type === "let") {
-		return compileLet(expr, scope);
-	} else if (expr.type === 'map') {
-		return 'sashimiCore.Map(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
-	} else if (expr.type === 'list') {
-		return 'sashimiCore.List(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
-	} else if (expr.type === 'set') {
-		return 'sashimiCore.Set(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
-	} else if (expr.type === 'bag') {
-		return 'sashimiCore.Bag(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
-	} else if (expr.type === 'mapAccess') {
-		return compileExpr(expr.map, scope) + "(" + compileExpr(expr.key, scope) + ")";
-	} else if (expr.type === "assignment") {
-		return compileAssignment(expr, scope);
-	} else if (expr.type === "binaryOperation") {
-		return compileBinaryOperation(expr, scope);
-	} else if (expr.type === "unaryOperation") {
-		return compileUnaryOperation(expr, scope);
-	} else if (expr.type === "chain") {
-		return compileChain(expr, scope);
-	} else if (expr.type === "functionCall") {
-		return compileExpr(expr.function, scope) + '(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
-	} else if (expr.type === 'exprList') {
-		return '(' + expr.value.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')';
-	} else {
-		return "not supported: " + expr.type;
+	return expr.type === "string" ?
+		'"' + expr.value + '"' :
+	expr.type === "regex" ?
+		'(' + expr.value + ')' :
+	expr.type === "number" ?
+		expr.value :
+	expr.type === "js" ?
+		expr.value :
+	expr.type === 'nil' ?
+		'undefined' :
+	expr.type === 'boolean' ?
+		expr.value :
+	expr.type === "keyword" ?
+		"sashimiInternal.Keyword('" + expr.value + "')" :
+	expr.type === "identifier" ?
+		compileIdentifier(expr, scope) :
+	expr.type === "if" ?
+		"(" + compileExpr(expr.condition, scope) + " ? " + compileExpr(expr.consequent, scope) + " : " + compileExpr(expr.alternative, scope) + ")" : // TODO: might need more parens
+	expr.type === "fn" ?
+		'sashimiInternal.Fn(' + compileFn(expr, scope) + ')' :
+	expr.type === "let" ?
+		compileLet(expr, scope) :
+	expr.type === 'map' ?
+		'sashimiInternal.Map(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
+	expr.type === 'list' ?
+		'sashimiInternal.List(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
+	expr.type === 'set' ?
+		'sashimiInternal.Set(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
+	expr.type === 'bag' ?
+		'sashimiInternal.Bag(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
+	expr.type === 'mapAccess' ?
+		compileMapAccess(expr, scope) :
+	expr.type === "assignment" ?
+		compileAssignment(expr, scope) :
+	expr.type === "binaryOperation" ?
+		compileBinaryOperation(expr, scope) :
+	expr.type === "unaryOperation" ?
+		compileUnaryOperation(expr, scope) :
+	expr.type === "chain" ?
+		compileChain(expr, scope) :
+	expr.type === "functionCall" ?
+		compileExpr(expr.function, scope) + '(' + expr.arguments.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
+	expr.type === 'exprList' ?
+		'(' + expr.value.map(function(arg) { return compileExpr(arg, scope); }).join(',') + ')' :
+		"not supported: " + expr.type;
+}
+
+function compileIdentifier(expr, scope) {
+	if (!scope.some(function(set) { return set.has(expr.value); })) {
+		if (expr.value in sashimiCore)
+			return "sashimiCore." + expr.value;
+		console.log(expr);
+		throw Error(expr.value + " is not defined. " + L.last(scope).toString());
 	}
+	return expr.value + "_sa";
 }
 
 function compileFn(expr, scope) {
 	if (expr.bodies.length === 1) {
-		var nonRest = L.last(expr.bodies[0].bindings).rest ? expr.bodies[0].bindings : expr.bodies[0].bindings.slice(0, -1);
+		var nonRest = expr.bodies[0].bindings.length === 0 ? [] : L.last(expr.bodies[0].bindings).rest ? expr.bodies[0].bindings : expr.bodies[0].bindings.slice(0, -1);
 		return "function(" +
 			nonRest.map(function(binding) { return binding.name + "_sa"; }).join(", ") +
 			") {" +
@@ -151,7 +179,7 @@ function compileFnBody(body, scope, multipleBodies) {
 	}, strSet()));
 
 	var rest, nonRest = body.bindings;
-	if (L.last(body.bindings).rest) {
+	if (body.bindings.length > 0 && L.last(body.bindings).rest) {
 		rest = L.last(body.bindings);
 		nonRest = body.bindings.slice(0, -1);
 	}
@@ -190,24 +218,11 @@ function compileLet(expr, scope) {
 		"return " + compileExpr(expr.value, newScope) + ";}())";
 }
 
-
-function compileBinaryOperation(expr, scope) {
-	if (expr.operator === '&') {
-		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
-			"; return sashimiCore.toBool(op1_sashc) ? op1_sashc :" + compileExpr(expr.operands[1], scope) + ";})()";
-	} else if (expr.operator === '|') {
-		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
-			"; return sashimiCore.toBool(op1_sashc) ? " + compileExpr(expr.operands[1], scope) + ": op1_sashc;})()";
-	} else {
-		return "(" + compileExpr(expr.operands[0], scope) + expr.operator + compileExpr(expr.operands[1], scope) + ")";
-	}
+function compileMapAccess(expr, scope) {
+	if (expr.map.type === 'identifier' && expr.map.value === 'js')
+		return "sashimiInternal.fromJS(" + expr.key.value + ")";
+	return compileExpr(expr.map, scope) + "(" + compileExpr(expr.key, scope) + ")";
 }
-
-function compileUnaryOperation(expr, scope) {
-	if (expr.operator === '!')
-		return "(!sashimiCore.toBool(" + compileExpr(expr.operand, scope) + "))";
-	return '(' + expr.operator + compileExpr(expr.operand, scope) + ')';
-}	
 
 function compileAssignment(expr, scope) {
 	if (expr.assignee.type === 'mapAccess')
@@ -215,9 +230,29 @@ function compileAssignment(expr, scope) {
 	return "(" + expr.assignee + "_sa = " + compileExpr(expr.value, scope) + ")";
 }
 
+function compileBinaryOperation(expr, scope) {
+	if (expr.operator === '&') {
+		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
+			"; return sashimiInternal.Bool(op1_sashc) ? op1_sashc :" + compileExpr(expr.operands[1], scope) + ";})()";
+	} else if (expr.operator === '|') {
+		return "(function(){ var op1_sashc = " + compileExpr(expr.operands[0], scope) +
+			"; return sashimiInternal.Bool(op1_sashc) ? " + compileExpr(expr.operands[1], scope) + ": op1_sashc;})()";
+	} else if (expr.operator === '**') {
+		return "Math.pow(" + compileExpr(expr.operands[0], scope) + "," + compileExpr(expr.operands[1], scope) + ")";
+	} else {
+		return "(" + compileExpr(expr.operands[0], scope) + (expr.operator === '==' ? '===' : expr.operator) + compileExpr(expr.operands[1], scope) + ")";
+	}
+}
+
+function compileUnaryOperation(expr, scope) {
+	if (expr.operator === '!')
+		return "(!sashimiInternal.Bool(" + compileExpr(expr.operand, scope) + "))";
+	return '(' + expr.operator + compileExpr(expr.operand, scope) + ')';
+}	
+
 function compileChain(expr, scope) {
-	if (expr.function.type !== "functionCall")
+	if (expr.right.type !== "functionCall")
 		throw Error("A chain expression must include a function call");
-	expr.function.arguments.unshift(expr.caller);
-	return compileExpr(expr.function, scope);
+	expr.right.arguments.unshift(expr.left);
+	return compileExpr(expr.right, scope);
 }

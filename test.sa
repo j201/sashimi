@@ -32,10 +32,20 @@ myMap = {.a, 1, .b, 2};
 
 myFn(myMap.a.b);
 
-myMap.c = 3;
+myMap.c = 3**4;
 
 `console.log('done')`;
 
 !myMap^myFn(2);
 
 negate();
+
+js.alert(js.document.body);
+
+type Cons = fn a, b:
+	[a, b];
+
+Cons^length = fn cons:
+	if cons(1) == nil:
+		0,
+		1 + length(cons(1));

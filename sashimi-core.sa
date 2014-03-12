@@ -1,0 +1,47 @@
+module "core";
+
+// Note: this doesn't currently compile, but it will eventually
+
+/*
+Planned core functions:
+General data: count, get, set
+Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range, in, some, every
+Sets: in
+Maps: keys, values
+Math: add, subtract, multiply, divide, modulo, max, min, floor, ceil, binary.add, binary.or, binary.xor, binary.not
+Logic: and, or, not
+Fns: partial, comp
+Strings: split, replace, in, indexOf
+Console: prn
+
+Note: like in js, factories for basic types can take any argument, effectively acting as casts
+They are also extensible for custom types, so for example, to define a custom Type->String operation, one would implement String:
+Cons^String = fn cons:
+	"(" + cons.car^String() + "," + cons.cdr^String() + ")";
+*/
+
+export reduce = js.sashimiInternal.reduce;
+
+export Map = fn &items:
+	let result = js.sashimiInternal.Map();
+		(for item in items:
+			result.add(item),
+		result);
+
+export map = fn list, f:
+	reduce(list, [], fn acc, el:
+		push(acc, f(el)));
+
+export filter = fn list, f:
+	reduce(list, [], fn acc, el:
+		if f(el):
+			push(acc, el),
+			acc);
+
+export zipWith = fn f, &lists:
+	let outLength = min(map(lists, length)):
+		map(range(outLength), fn i:
+			apply(f, map(lists, fn list: list(i))));
+
+export prn = fn &args:
+	(js.console.log.apply(js.console, args), args(0));

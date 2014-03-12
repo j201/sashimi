@@ -6,19 +6,19 @@
 \`(?:[^\`]|\`\`)*\`	return 'js'
 \/\/[^\n]+\n	/* ignore comment */
 \/\*[^]+?\*\/	/* ignore comment */
-\s+				/* ignore */
+\s+				/* ignore whitespace */
 \-?\d+(?:\.\d*(?:[eE]\-?\d+)?|[eE]\-?\d+)? return 'number'
 /* \:\w+			return 'keyword' */
 'module'		return 'module'
 'import'		return 'import'
 'export'		return 'export'
+'type'			return 'type'
 'fn'			return 'fn'
 'let'			return 'let'
 'if'			return 'if'
 'true'			return 'true'
 'false'			return 'false'
 'nil'			return 'nil'
-/* [\w\.]*\.[\w\.]* return 'identifierWithPeriods' */
 \w+				return 'identifier'
 '\'('			return '\'('
 '('				return '('
@@ -33,6 +33,7 @@
 '+'				return '+'
 '-'				return '-'
 '/'				return '/'
+'**'			return '**'
 '*'				return '*'
 '^'				return '^'
 '&'				return '&'
@@ -51,6 +52,7 @@
 ':'				return ':'
 '^'				return '^'
 '#'				return '#'
+'~'				return '~'
 <<EOF>>	return 'EOF'
 
 /lex
@@ -65,6 +67,7 @@
 %left '<=' '>=' '<' '>' '==' '!='
 %left '+' '-'
 %left '*' '/'
+%left '**'
 %right UMINUS
 %right '!'
 %left '^'
@@ -82,13 +85,16 @@ statements :
 	| statements statement { $1.push($2); $$ = $1; }
 ;
 
-statement: moduleStatement | exportStatement | expr ';';
+statement: moduleStatement | exportStatement | typeDeclaration | expr ';';
 
-moduleStatement: 'module' moduleIdentifier ';' { $$ = { type: 'module', name: $2 } };
+moduleStatement: 'module' string ';' { $$ = { type: 'module', name: $2 } };
 
-moduleIdentifier: identifier | identifierWithPeriods;
+exportStatement:
+	'export' '=' expr ';' { $$ = { type: 'export', value: $3 } }
+	| 'export' identifier '=' expr ';' { $$ = { type: 'exportedDefinition', name: $2, value: $4 } }
+;
 
-exportStatement: 'export' expr ';' { $$ = { type: 'export', value: $2 } };
+typeDeclaration: 'type' identifier '=' fnExpr ';' { $$ = { type: 'typeDeclaration', typeName: $2, factory: $4 } };
 
 expr:
 	string { $$ = { type: 'string', value: yytext.slice(1, -1) } }
@@ -108,7 +114,7 @@ expr:
 	| binaryOperation
 	| unaryOperation
 	| assignment
-	| expr '^' expr { $$ = { type: "chain", caller: $1, function: $3 } } /* Note: MUST be of the form expr.expr(...) */
+	| expr '^' expr { $$ = { type: "chain", left: $1, right: $3 } } /* Note: MUST be of the form expr.expr(...) */
 	| expr '(' delimitedExprs ')' { $$ = { type: 'functionCall', function: $1, arguments: $3 } }
 	| expr '(' ')' { $$ = { type: 'functionCall', function: $1, arguments: [] } }
 	| '(' delimitedExprs ')' { $$ = { type: 'exprList', value: $2 } }
@@ -138,7 +144,7 @@ boolean:
 
 keyword: '.' identifier { $$ = { type: 'keyword', value: $2 } };
 
-importExpr: 'import' moduleIdentifier { $$ = { type: 'import', name: $2 } };
+importExpr: 'import' string { $$ = { type: 'import', name: $2 } };
 
 ifExpr: 'if' expr ':' expr ',' expr { $$ = { type: 'if', condition: $2, consequent: $4, alternative: $6 } };
 
@@ -161,11 +167,15 @@ fnBodies:
 	| fnBodies ',' fnBody  { $1.push($3); $$ = $1; }
 ;
 
-fnBody: fnBindings ':' expr { $$ = { bindings: $1, value: $3 } };
+fnBody:
+	fnBindings ':' expr { $$ = { bindings: $1, value: $3 } }
+	| ':' expr { $$ = { bindings: [], value: $2 } }
+;
 
 fnBindings:
 	nonRestParams { $$ = $1 }
 	| nonRestParams restParam { $1.push($2); $$ = $1; }
+	| restParam { $$ = [$1] }
 ;
 
 nonRestParams:
@@ -201,6 +211,7 @@ binaryOperation:
 	expr '+' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '-' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '/' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
+	| expr '**' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '*' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '&' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
 	| expr '|' expr { $$ = { type: 'binaryOperation', operator: $2, operands: [$1, $3] } }
@@ -216,4 +227,3 @@ unaryOperation:
 	'-' expr { $$ = { type: 'unaryOperation', operator: $1, operand: $2 } }
 	| '!' expr { $$ = { type: 'unaryOperation', operator: $1, operand: $2 } }
 ;
-

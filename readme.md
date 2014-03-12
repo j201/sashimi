@@ -8,9 +8,14 @@ An altjs in progress...
 
 - module system
 - core lib implementation
-- special js module
 - runtime type dispatch
 
 ###Possible future features:
 
 - loop/recur
+- inheritance
+- lazy sequences
+- data freezing
+- destructuring
+- when form (à la clojure)
+- cond/switch form

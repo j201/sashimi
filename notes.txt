@@ -1,0 +1,14 @@
+Modules:
+
+A module is declared with a module statement:
+module "foo";
+The module continues until the end of the file or another module statement.
+
+A module is imported by assigning it to a local variable
+foo = import "foo";
+
+Exports can be done one of two ways, either by assigning to export:
+export = {.piApprox, 22/7};
+or by prepending defines with export:
+export piApprox = 22/7;
+The two styles cannot be mixed in a module.
