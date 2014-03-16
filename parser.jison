@@ -109,7 +109,7 @@ expr:
 	| ifExpr
 	| fnExpr
 	| letExpr
-	| map | list | set | bag
+	| set | bag | map | list
 	| mapAccess
 	| binaryOperation
 	| unaryOperation

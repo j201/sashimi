@@ -22,6 +22,10 @@ Parsed as a JS regex, although the supported functions are different.
 
 A value that is only equal to the same keyword.
 
+###Boolean
+
+Equivalent to a JS boolean.
+
 ###Map
 
 Associates arbitrary keys to arbitrary values.
@@ -53,3 +57,51 @@ Equivalent to JS RegExp literals.
 ###Number
 
 Equivalent to JS number literals.
+
+###Nil
+
+The symbol `nil`.
+
+###Boolean
+
+The symbol `true` or `false`
+
+###Keyword
+
+The `.` character followed by a sequence of letters, numbers, or underscores.
+
+###Set
+
+A series of expressions separated by commas and surrounded by the tokens `#{` and `}`.
+
+###Bag
+
+A series of expressions separated by commas and surrounded by the tokens `#[` and `]`.
+
+###Map
+
+A series of expressions separated by commas and surrounded by the tokens `{` and `}`.
+
+###List
+
+A series of expressions separated by commas and surrounded by the tokens `[` and `]`.
+
+##Parsing
+
+Whitspace separates tokens but is otherwise ignored.
+
+###Operators
+
+The following operators exist:
+
+`+` `-` `/` `*` `**` `&` `|` `>` `<` `>=` `<=` `==` `!=` `!` `=`
+
+###Reserved Words
+
+In addition to the literals and operators, the following tokens are reserved:
+
+`fn` `if` `when` `case` `let` `module` `import` `export` `type`
+
+###Identifiers
+
+Any sequence of letters, numbers, and underscores that is not a literal or reserved word is an identifier.
