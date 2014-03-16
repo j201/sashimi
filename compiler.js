@@ -47,7 +47,7 @@ var initialState = {
 };
 
 function inScope(name, scope) {
-	return (name in sashimiCore) || scope.some(function(set) { return set.has(name); });
+	return (name in sashimiInternal.global) || (name in sashimiCore) || scope.some(function(set) { return set.has(name); });
 }
 
 function compile(text) {
@@ -78,7 +78,7 @@ function compileStatement(statement, module) {
 		if (inScope(methodName, module.scope))
 			return compileIdentifier(methodName) + ".addDef('" + typeName + "'," + compileFn(method, module.scope) + ")";
 		module.scope[0].add(methodName);
-		module.js += 'sashimiInternal.' + methodName + ' = sashimiInternal.Fn().addDef("' + typeName + '",' + compileFn(method, module.scope) + ")";
+		module.js += 'sashimiInternal.global.' + methodName + ' = sashimiInternal.Fn().addDef("' + typeName + '",' + compileFn(method, module.scope) + ")";
 	} else {
 		module.js += compileExpr(statement, module.scope) + ";";
 	}
@@ -140,9 +140,10 @@ function compileExpr(expr, scope) {
 
 function compileIdentifier(expr, scope) {
 	if (!scope.some(function(set) { return set.has(expr.value); })) {
+		if (expr.value in sashimiInternal.global)
+			return "sashimiInternal.global." + expr.value;
 		if (expr.value in sashimiCore)
 			return "sashimiCore." + expr.value;
-		console.log(expr);
 		throw Error(expr.value + " is not defined. " + L.last(scope).toString());
 	}
 	return expr.value + "_sa";

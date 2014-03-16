@@ -41,6 +41,8 @@ var sashimiInternal;
 		return isSashimiVal(val) ? internalVal(val[2]) : val;
 	}
 
+	internal.global = {};
+
 	internal.type = function(val) {
 		if (val == null)
 			return 'Nil';
@@ -148,7 +150,7 @@ var sashimiInternal;
 	}
 
 	function toJS(val) {
-		return val.value || val;
+		return val && (isSashimiVal(val) ? internalVal(val) : val);
 	};
 
 	function fromJS(val, context) {
