@@ -42,6 +42,10 @@ A bag in which a value can only appear once.
 
 An ordered group of values.
 
+###Function
+
+Equivalent to a JS function, except can have method definitions (alternate functions that are dispatched instead based on the type of the first argument), and cannot have properties.
+
 ##Literals
 
 Literals have precedence in the following order
@@ -86,15 +90,27 @@ A series of expressions separated by commas and surrounded by the tokens `{` and
 
 A series of expressions separated by commas and surrounded by the tokens `[` and `]`.
 
+###Function
+
+In BNF,
+
+Function literal ::= `fn` fnBody | `fn` `[` fnBodies `]`  
+fnBodies ::= fnBody | fnBodies `,` fnBody  
+fnBody ::= fnBindings `:` expression | `:` expression  
+fnBindings ::= nonRestParams | nonRestParams restParams | restParams  
+nonRestParams ::= nonRestParam | nonRestParams restParam  
+nonRestParam ::= identifier | identifier `,` | identifier `=` expression | identifier `=` expression `,`  
+restParam ::= `&` identifier
+
 ##Parsing
 
-Whitspace separates tokens but is otherwise ignored.
+Whitspace separates tokens but is otherwise ignored. If an error is thrown in the evaluation of a statement or expression, then the compilation or interpretation of the code stops immediately and a JavaScript error is thrown.
 
 ###Operators
 
 The following operators exist:
 
-`+` `-` `/` `*` `**` `&` `|` `>` `<` `>=` `<=` `==` `!=` `!` `=`
+`+` `-` `/` `*` `**` `&` `|` `>` `<` `>=` `<=` `==` `!=` `!` `=` `^` `#`
 
 ###Reserved Words
 
@@ -105,3 +121,26 @@ In addition to the literals and operators, the following tokens are reserved:
 ###Identifiers
 
 Any sequence of letters, numbers, and underscores that is not a literal or reserved word is an identifier.
+
+##Statements
+
+A statement is one of the following:
+
+###Definition
+
+`identifier` `=` `expression` `;`
+
+If the given identifier is already defined in the scope, an error is thrown. Otherwise, the expression is evaluated and its value is assigned to the given identifier.
+
+###Method Definition
+
+`identifier` `#` `identifier` `=` `expression` `;`
+
+- If the first identifier is not the name of a type in the scope, an error is thrown.
+- If the second identifier is bound to a value other than a function, an error is thrown.
+- If the second identifier is not bound, then it is bound to a new instance of the function `fn: nil`.
+- Let `f` be the function identified by the second identifier and `t` be the type identified by the first identifier.
+- If `f` already has a method definition for `t`, an error is thrown.
+- Let `v` be the result of evaluating the expression.
+- If `v` is not a function, an error is thrown.
+- `v` is assigned to `f` as a method definition for type `t`.
