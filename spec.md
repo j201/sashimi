@@ -144,3 +144,26 @@ If the given identifier is already defined in the scope, an error is thrown. Oth
 - Let `v` be the result of evaluating the expression.
 - If `v` is not a function, an error is thrown.
 - `v` is assigned to `f` as a method definition for type `t`.
+
+###Module Declaration
+
+`'module'` `string literal` `;`
+
+If the module named by the string already exists, an error is thrown. Otherwise, sets the current module to the string until the end of the file or the next module declaration.
+
+###Module Export Statement
+
+`'export'` `=` `expression` `;`
+
+If there have been any module export statements or exported definitions in the current module, an error is thrown. Otherwise, sets the export value of the module to the expression.
+
+###Exported Definition
+
+`'export'` `identifier` `=` `expression` `;`
+
+- If there has been a module export statement in the current module, an error is thrown.
+- If there have not been any export definitions in the current module, the module's export value is set to an empty map.
+- Let `e` be the current module export value.
+- Let `k` be the keyword that would be produced by the keyword literal created by prepending a period to the identifier.
+- If `k` exists as a key in `e`, an exception is thrown.
+- `k` is added as a ky to `e` with the value of the expression.
