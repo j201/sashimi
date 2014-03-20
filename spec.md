@@ -139,7 +139,8 @@ If the given identifier is already defined in the scope, an error is thrown. Oth
 - If the first identifier is not the name of a type in the scope, an error is thrown.
 - If the second identifier is bound to a value other than a function, an error is thrown.
 - If the second identifier is not bound, then it is bound to a new instance of the function `fn: nil`.
-- Let `f` be the function identified by the second identifier and `t` be the type identified by the first identifier.
+- If the first identifier is not bound to a type function, an error is thrown.
+- Let `f` be the function identified by the second identifier and `t` be the return type of the type function identified by the first identifier.
 - If `f` already has a method definition for `t`, an error is thrown.
 - Let `v` be the result of evaluating the expression.
 - If `v` is not a function, an error is thrown.
@@ -167,3 +168,19 @@ If there have been any module export statements or exported definitions in the c
 - Let `k` be the keyword that would be produced by the keyword literal created by prepending a period to the identifier.
 - If `k` exists as a key in `e`, an exception is thrown.
 - `k` is added as a ky to `e` with the value of the expression.
+
+###Type Definition
+
+`'type'` `identifier` `=` `function expression` `;`
+
+Evaluates as if a definition statement without the `'type'` token, but modifies the function expression so that the values returned by it will have the identifier pushed onto their type stack and so that the function expression is annotated as a type function with the identifier as its return type.
+
+###Expression Statement
+
+`expression` `;`
+
+If a statement is a valid expression and cannot be parsed as another type of statement, the expression is evaluated.
+
+##Modules
+
+Sashimi code can either be executed on its own or within a module. A module is a section of code started with a module statement and terminated by another module statement or the end of the code file. When a module is started, all bindings are cleared except those in the core library. The export value of a module, as specified by a module export statements or by exported definitions, is saved for the duration of the execution of the program importing the module. A module can be imported by an import expression. A module must not be executed more than once during the execution of a program and it must not be executed unless imported or specified as the program entry point. It is recommended that modules be split up into separate files and then compiled together. How these files are specified is implementation-dependent. If modules have circular dependencies, an error is thrown.
