@@ -1,6 +1,10 @@
 #Sashimi Spec
 
-##Types
+##Values
+
+Sashimi values have a primary value, which they evaluate to as an expression on their own, and internal properties. An identifier preceded by `..` represents an internal property attached to a value. It should not be directly accessible by Sashimi code. For example, `foo..bar` represents the internal `bar` property on `foo`.
+
+##Value Types
 
 ###Nil
 
@@ -122,6 +126,41 @@ In addition to the literals and operators, the following tokens are reserved:
 
 Any sequence of letters, numbers, and underscores that is not a literal or reserved word is an identifier.
 
+##The `..type` Stack
+
+All values have an internal `..type` property that is a stack of strings. It supports the following abstract operations:
+
+- `push(value..type, typeName)` - Adds the `typeName` string to the top of the `..type` stack.
+- `first(value..type)` - Returns the top type string on the `..type` stack.
+- `next(value..type)` - Returns the `..type` stack without the top string.
+- `empty(value..type` - Returns `true` if there are no strings in the `..type` stack, else `false`.
+
+###Default `..type` Values
+
+Unless otherwise modified, the following primitive values have the following single value on their type stacks:
+
+Value Type | Type Stack Value
+--- | ---
+Nil | "Nil"
+String | "String"
+Number | "Number"
+Regex | "Regex"
+Keyword | "Keyword"
+Boolean | "Boolean"
+Map | "Map"
+Bag | "Bag"
+Set | "Set"
+List | "List"
+Function | "Function"
+
+All of the above type stack values are always considered to exist in any namespace and cannot be redefined with a type declaration.
+
+##Expressions
+
+An expression is one of the following, in order of precedence:
+
+
+
 ##Statements
 
 A statement is one of the following:
@@ -140,7 +179,7 @@ If the given identifier is already defined in the scope, an error is thrown. Oth
 - If the second identifier is bound to a value other than a function, an error is thrown.
 - If the second identifier is not bound, then it is bound to a new instance of the function `fn: nil`.
 - If the first identifier is not bound to a type function, an error is thrown.
-- Let `f` be the function identified by the second identifier and `t` be the return type of the type function identified by the first identifier.
+- Let `f` be the function identified by the second identifier and `t` be the `..returnType` of the type function identified by the first identifier.
 - If `f` already has a method definition for `t`, an error is thrown.
 - Let `v` be the result of evaluating the expression.
 - If `v` is not a function, an error is thrown.
@@ -173,7 +212,11 @@ If there have been any module export statements or exported definitions in the c
 
 `'type'` `identifier` `=` `function expression` `;`
 
-Evaluates as if a definition statement without the `'type'` token, but modifies the function expression so that the values returned by it will have the identifier pushed onto their type stack and so that the function expression is annotated as a type function with the identifier as its return type.
+- Let `t` be the string text of the identifier.
+- If 
+CONTINUE HERE
+
+Evaluates as if a definition statement without the `'type'` token, but modifies the function expression so that the values returned by it will have the identifier pushed onto their `..type` stack and so that the function expression has its `..isTypeFn` set to `true` and its `..
 
 ###Expression Statement
 
