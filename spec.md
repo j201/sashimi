@@ -155,11 +155,37 @@ Function | "Function"
 
 All of the above type stack values are always considered to exist in any namespace and cannot be redefined with a type declaration.
 
+##Scope
+
+A module has its own scope, and all expressions have their own scope, although this only should need to be created by the compiler for expressions that bind variables, such as function literals or let expressions. Scope is lexical.
+
 ##Expressions
 
 An expression is one of the following, in order of precedence:
 
+###Literal
 
+Any of the literals described above.
+
+###Identifier
+
+If the identifier exists in the current scope or any of the enclosing scopes, evaluates to the value bound to that identifier, with inner scopes taking precedence. Otherwise, an error is thrown.
+
+###Import Expression
+
+`import` `string literal`
+
+If a module with the same name as the value of the string literal has been defined, then evaluates to the export value of that module. Otherwise, an error is thrown.
+
+###If Expression
+
+`if` `condition expression` `:` `consequent expression` `,` `alternate expression`
+
+Evaluates the condition expression. If the result is not equal to `nil` or `false`, evaluates to the value of the consequent expression, otherwise evaluates to the value of the alternate expression. Only one of the consequent and alternate expressions may be evaluated.
+
+###Let Expression
+
+TODO: in BNF
 
 ##Statements
 
