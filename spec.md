@@ -6,6 +6,8 @@ Sashimi values have a primary value, which they evaluate to as an expression on 
 
 ##Value Types
 
+Maps, bags, sets, and lists are mutable. All other values are immutable.
+
 ###Nil
 
 Equivalent to the JS value `undefined`.
@@ -133,6 +135,7 @@ All values have an internal `..type` property that is a stack of strings. It sup
 - `push(value..type, typeName)` - Adds the `typeName` string to the top of the `..type` stack.
 - `first(value..type)` - Returns the top type string on the `..type` stack.
 - `next(value..type)` - Returns the `..type` stack without the top string.
+- `has(value..type, str)` - Returns `true` if the string in the second parameter is one of the elements of the `..type` stack, else false.
 - `empty(value..type` - Returns `true` if there are no strings in the `..type` stack, else `false`.
 
 ###Default `..type` Values
@@ -157,7 +160,7 @@ All of the above type stack values are always considered to exist in any namespa
 
 ##Scope
 
-A module has its own scope, and all expressions have their own scope, although this only should need to be created by the compiler for expressions that bind variables, such as function literals or let expressions. Scope is lexical.
+Files have their own scope, modules have their own scope, and all expressions have their own scope, although this only should need to be created by the compiler for expressions that bind variables, such as function literals or let expressions. Scope is lexical.
 
 ##Expressions
 
@@ -167,9 +170,13 @@ An expression is one of the following, in order of precedence:
 
 Any of the literals described above.
 
+####Function literal
+
+TODO: specify the behaviour of a function literal
+
 ###Identifier
 
-If the identifier exists in the current scope or any of the enclosing scopes, evaluates to the value bound to that identifier, with inner scopes taking precedence. Otherwise, an error is thrown.
+If the identifier exists in the current scope or any of the enclosing scopes, evaluates to the value bound to that identifier, with inner scopes taking precedence. Otherwise, an error is thrown. Note that the identifier binding does not have to occur before the identifier is first referenced, as long as it does occur somewhere in an enclosing scope (definitions are "hoisted"). However, if the identifier is evaluated before it has been bound, an error is thrown.
 
 ###Import Expression
 
@@ -185,7 +192,43 @@ Evaluates the condition expression. If the result is not equal to `nil` or `fals
 
 ###Let Expression
 
-TODO: in BNF
+Let Expression  ::= `let` letBindings `:` expression
+letBindings ::= letBinding | letBindings letBinding
+letBinding ::= identifier  `=` expression | identifier `=` expression `,`
+
+A let expression creates a new scope with the identifiers listed in the letBindings bound to the result of evaluating each corresponding expression in the letBinding and evaluates an expression in that scope. Bindings are evaluated in order and may reference the result of previous bindings. So, `let a = 1, b = a: b` is equivalent to `let a = 1: let b = a: b`.
+
+###Map Keyword Access
+
+`expression` `keyword`
+
+Equivalent to the function call `expression(keyword)`. If the result of evaluating `expression` does not have `Map` in its `..type` stack, an error is thrown.
+
+###Binary Operation
+
+`expression` `operator` `expression`
+
+Where operator is one of the following:
+
+- `-`, `/`, `*`, `>`, `<`, `>=`, or `<=`: If either operand evaluates to a non-number value, an error is thrown. Otherwise, evaluates to the Sashimi number equivalent of using the same operator in JS with the JS equivalents of the results of evaluating the operands.
+- `+`: If both operands evaluate to strings, evaluates to the concatenation of the strings. If both operands evaluate to numbers, evaluates to the Sashimi number equivalent of using the JS `+` operator on the JS equivalents of the results of evaluating the operands.
+- `**`: If either operand evaluates to a non-number value, an error is thrown. Otherwise, evaluates to the Sashimi number equivalent of calling the JS function `Math.pow` on the JS equivalents of the results of evaluating the operands.
+- `&`: If the first operand evaluates to `false` or `nil`, evaluates to the first operand, otherwise evaluates to the second operand. The second operand is only evaluated if the first operand does not evaluate to `false` or `nil`.
+- `|`: If the first operand does not evaluate to `false` or `nil`, evaluates to the first operand, otherwise evaluates to the second operand. The second operand is only evaluated if the first operand evaluates to to `false` or `nil`.
+- `==`:
+	- Let `o1` be the result of evaluating the first operand and `o2` be the result of evaluating the second.
+	- If `o1` and `o2` have a different value type, evaluates to `false`.
+	- If `first(o1..type)` and `first(o2..type)` are not the same string, evaluates to `false`.
+	- If `o1` and `o2` are mutable and they refer to the same value (reference equality), evaluates to `true`.
+	- If `o1` and `o2` are immutable and their values are equivalent (value equality), evaluates to `true`.
+	- Evaluates to `false`.
+- `!=`: Gives the opposite boolean value of the result of evaluating the operands with `==`.
+
+###Unary Operation
+
+`operator` `expression`
+
+####Operator Precendence and Associativity
 
 ##Statements
 
