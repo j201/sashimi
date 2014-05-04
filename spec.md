@@ -6,7 +6,7 @@ Sashimi values have a primary value, which they evaluate to as an expression on 
 
 ##Value Types
 
-Maps, bags, sets, and lists are mutable. All other values are immutable.
+All values are immutable.
 
 ###Nil
 
@@ -50,7 +50,7 @@ An ordered group of values.
 
 ###Function
 
-Equivalent to a JS function, except can have method definitions (alternate functions that are dispatched instead based on the type of the first argument), and cannot have properties.
+Equivalent to a JS function, except can have method definitions (alternate functions that are dispatched instead based on the tag of the first argument), and cannot have properties.
 
 ##Literals
 
@@ -128,35 +128,37 @@ In addition to the literals and operators, the following tokens are reserved:
 
 Any sequence of letters, numbers, and underscores that is not a literal or reserved word is an identifier.
 
-##The `..type` Stack
+##The `..tag` Stack
 
-All values have an internal `..type` property that is a stack of strings. It supports the following abstract operations:
+All values have an internal `..tag` property that is a stack of keywords. It supports the following abstract operations:
+TODO: remove unused operations
 
-- `push(value..type, typeName)` - Adds the `typeName` string to the top of the `..type` stack.
-- `first(value..type)` - Returns the top type string on the `..type` stack.
-- `next(value..type)` - Returns the `..type` stack without the top string.
-- `has(value..type, str)` - Returns `true` if the string in the second parameter is one of the elements of the `..type` stack, else false.
-- `empty(value..type` - Returns `true` if there are no strings in the `..type` stack, else `false`.
+- `withTag(value, tagName)` - Evaluates to a value that is the same as `value`, but with `tagName` pushed to its `..tag` stack.
+- `push(value..tag, tagName)` - Adds the `tagName` keyword to the top of the `..tag` stack.
+- `first(value..tag)` - Returns the top tag keyword on the `..tag` stack.
+- `next(value..tag)` - Returns the `..tag` stack without the top keyword.
+- `has(value..tag, str)` - Returns `true` if the keyword in the second parameter is one of the elements of the `..tag` stack, else false.
+- `empty(value..tag)` - Returns `true` if there are no keywords in the `..tag` stack, else `false`.
 
-###Default `..type` Values
+###Default `..tag` Values
 
-Unless otherwise modified, the following primitive values have the following single value on their type stacks:
+Unless otherwise modified, the following primitive values have the following single value on their tag stacks:
 
-Value Type | Type Stack Value
+Value Type | tag stack Value
 --- | ---
-Nil | "Nil"
-String | "String"
-Number | "Number"
-Regex | "Regex"
-Keyword | "Keyword"
-Boolean | "Boolean"
-Map | "Map"
-Bag | "Bag"
-Set | "Set"
-List | "List"
-Function | "Function"
+Nil | .Nil
+String | .String
+Number | .Number
+Regex | .Regex
+Keyword | .Keyword
+Boolean | .Boolean
+Map | .Map
+Bag | .Bag
+Set | .Set
+List | .List
+Function | .Function
 
-All of the above type stack values are always considered to exist in any namespace and cannot be redefined with a type declaration.
+All of the above tag stack values are always considered to exist in any namespace and cannot be redefined with a tag declaration.
 
 ##Scope
 
@@ -202,7 +204,7 @@ A let expression creates a new scope with the identifiers listed in the letBindi
 
 `expression` `keyword`
 
-Equivalent to the function call `expression(keyword)`. If the result of evaluating `expression` does not have `Map` in its `..type` stack, an error is thrown.
+Equivalent to the function call `expression(keyword)`. If the result of evaluating `expression` does not have `Map` in its `..tag` stack, an error is thrown.
 
 ###Binary Operation
 
@@ -218,17 +220,26 @@ Where operator is one of the following:
 - `==`:
 	- Let `o1` be the result of evaluating the first operand and `o2` be the result of evaluating the second.
 	- If `o1` and `o2` have a different value type, evaluates to `false`.
-	- If `first(o1..type)` and `first(o2..type)` are not the same string, evaluates to `false`.
-	- If `o1` and `o2` are mutable and they refer to the same value (reference equality), evaluates to `true`.
-	- If `o1` and `o2` are immutable and their values are equivalent (value equality), evaluates to `true`.
+	- If `first(o1..tag)` and `first(o2..tag)` are not the same string, evaluates to `false`.
+	- If the values of `o1` and `o2` are equivalent (value equality), evaluates to `true`.
 	- Evaluates to `false`.
-- `!=`: Gives the opposite boolean value of the result of evaluating the operands with `==`.
+- `!=`: Evaluates to the opposite boolean value of the result of evaluating the operands with `==`.
+- `~`: If the result of evaluating the second operand is not a keyword, an error is thrown, otherwise evaluates to `withTag(<first operand>, <second operand>)`
 
 ###Unary Operation
 
 `operator` `expression`
 
+Where operator is one of the following:
+
+- `-`: If the operand evaluates to a non-number value, an error is thrown. Otherwise, evaluates to the value produced by evaluating `0 - o`, where `o` is the result of evaluating the operand.
+- `!`: If the operand evaluates to `false` or `nil`, evaluates to `true`. Otherwise, evaluates to false.
+
 ####Operator Precendence and Associativity
+
+Precendence | Operator | Associativity
+-|-|-
+1 | 
 
 ##Statements
 
@@ -244,15 +255,15 @@ If the given identifier is already defined in the scope, an error is thrown. Oth
 
 `identifier` `#` `identifier` `=` `expression` `;`
 
-- If the first identifier is not the name of a type in the scope, an error is thrown.
+- If the first identifier is not the name of a tag in the scope, an error is thrown.
 - If the second identifier is bound to a value other than a function, an error is thrown.
 - If the second identifier is not bound, then it is bound to a new instance of the function `fn: nil`.
-- If the first identifier is not bound to a type function, an error is thrown.
-- Let `f` be the function identified by the second identifier and `t` be the `..returnType` of the type function identified by the first identifier.
+- If the first identifier is not bound to a tag function, an error is thrown.
+- Let `f` be the function identified by the second identifier and `t` be the `..returnTag` of the tag function identified by the first identifier.
 - If `f` already has a method definition for `t`, an error is thrown.
 - Let `v` be the result of evaluating the expression.
 - If `v` is not a function, an error is thrown.
-- `v` is assigned to `f` as a method definition for type `t`.
+- `v` is assigned to `f` as a method definition for tag `t`.
 
 ###Module Declaration
 
@@ -276,16 +287,6 @@ If there have been any module export statements or exported definitions in the c
 - Let `k` be the keyword that would be produced by the keyword literal created by prepending a period to the identifier.
 - If `k` exists as a key in `e`, an exception is thrown.
 - `k` is added as a ky to `e` with the value of the expression.
-
-###Type Definition
-
-`'type'` `identifier` `=` `function expression` `;`
-
-- Let `t` be the string text of the identifier.
-- If 
-CONTINUE HERE
-
-Evaluates as if a definition statement without the `'type'` token, but modifies the function expression so that the values returned by it will have the identifier pushed onto their `..type` stack and so that the function expression has its `..isTypeFn` set to `true` and its `..
 
 ###Expression Statement
 
