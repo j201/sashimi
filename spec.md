@@ -235,11 +235,41 @@ Where operator is one of the following:
 - `-`: If the operand evaluates to a non-number value, an error is thrown. Otherwise, evaluates to the value produced by evaluating `0 - o`, where `o` is the result of evaluating the operand.
 - `!`: If the operand evaluates to `false` or `nil`, evaluates to `true`. Otherwise, evaluates to false.
 
-####Operator Precendence and Associativity
+###Expression Group
 
-Precendence | Operator | Associativity
+`(` `comma separated expressions` `)`  
+where `comma separated expressions` ::= `expression` | `expression` `,` `comma separated expressions`
+
+Evaluates the expressions in order, evaluating to the value produced when the last expression is evaluated.
+
+###Function Call
+
+`expression` `(` `comma separated expressions` `)`  
+where `comma separated expressions` ::= `expression` | `expression` `,` `comma separated expressions`
+
+If the value produced by evaluating the first expression isn't a function, an error is thrown. Otherwise, that value is called with the values produced by evaluating the expressions inside the parens as arguments.
+
+####Precendence and Associativity
+
+Precendence | Expression/Operator | Associativity
 -|-|-
-1 | 
+1 | Expression Group `(`, `)` | N/A
+2 | Map Keyword Access | Left
+3 | Function Call | Left
+4 | `!`, unary `-` | Right
+5 | `**` | Right
+6 | `*`, `/` | Left
+7 | `+`, `-` | Left
+8 | `>`, `<`, `>=`, `<=` | Left
+9 | `==`, `!=` | Left
+10 | `&` | Left
+11 | `|` | Left
+12 | `=` | Left
+13 | If Expression | Right
+14 | Let Expression | Right
+15 | Function Expression | Right
+16 | `,` | Left
+17 | `;` | Left
 
 ##Statements
 
