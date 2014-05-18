@@ -327,3 +327,69 @@ If a statement is a valid expression and cannot be parsed as another type of sta
 ##Modules
 
 Sashimi code can either be executed on its own or within a module. A module is a section of code started with a module statement and terminated by another module statement or the end of the code file. When a module is started, all bindings are cleared except those in the core library. The export value of a module, as specified by a module export statements or by exported definitions, is saved for the duration of the execution of the program importing the module. A module can be imported by an import expression. A module must not be executed more than once during the execution of a program and it must not be executed unless imported or specified as the program entry point. It is recommended that modules be split up into separate files and then compiled together. How these files are specified is implementation-dependent. If modules have circular dependencies, an error is thrown.
+
+##Core Functions
+
+The following functions are defined by default. A collection is a value that is a map, bag, set, or list (regardless of its tag). The following syntax is used:
+
+`functionName(arg1: ValueType, arg2: ValueTypeOpt1 | ValueTypeOpt2, arg3)`
+
+If an argument is not of the value type specified, an error is thrown.
+
+###count(coll: Collection)
+
+Returns the number of elements in a map, bag, set, or list. For a map, this is defined as the number of key/value pairs.
+
+###get(coll: Collection, key)
+
+If `coll` is a set, returns `true` if `key` is an element of the set, otherwise returns `false`. If `coll` is a bag, returns the number of times `key` exists in the bag if the bag does contain it, otherwise returns `nil`. If `coll` is a map, returns the value associated with `key`, or `nil` if there is no such association. If `coll` is a list and `key` is not a non-negative integral number, an error is thrown. Otherwise, the `key`th element of the list is returned.
+
+Calling a collection as a function with one value is equivalent to calling `get` on that collection and value.
+
+###set(coll: Map | List, key, value)
+
+If `coll` is a map, returns a new map with `key` associated with `value`. This replaces the existing association for `key` if one exists. Otherwise, if `key` is not a non-negative integral number, an error is thrown. Otherwise, returns a new list with the element at `key` set to `value`. If `key` is greater than or equal to the length of the list, an error is thrown.
+
+###first(l: List)
+
+If `l` has no elements, an error is thrown. Otherwise, returns the first element of `l`.
+
+###rest(l: List)
+
+If `l` has no elements, an error is thrown. Otherwise, returns a list equal to `l` except without `l`'s first element.
+
+###last(l: List)
+
+If `l` has no elements, an error is thrown. Otherwise, returns the last element of `l`.
+
+###butLast(l: list)
+
+If `l` has no elements, an error is thrown. Otherwise, returns a list equal to `l` except without `l`'s last element.
+
+###concat(l1: List, l2: List)
+
+Returns a list consisting of the elements of `l1` followed by the elements of `l2`.
+
+###cons(l: List, value)
+
+Returns a list `lReturn` such that `rest(lReturn) == l` and `head(lReturn) == value)`.
+
+###append(l: List, value)
+
+Returns a list `lReturn` such that `butLast(lReturn) == l` and `last(lReturn) == value)`.
+
+###map(l: List, f: Function)
+
+Returns a list of the return values resulting from calling `f` on each element of `l` in order.
+
+###filter(l: List, f: Function)
+
+Returns a list of the elements of `l`, in order, where calling `f` on the element doesn't return `false` or `nil`.
+
+###reduce(l: List, f: Function)
+
+If `l` is empty, an error is thrown. Otherwise, returns `reduce(rest(l), first(l), f)`.
+
+###reduce(l: List, initial, f: Function)
+
+If `l` is empty, returns `initial`. Otherwise, returns `reduce(rest(l), f(initial, first(l)), f)`.

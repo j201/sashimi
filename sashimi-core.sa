@@ -5,8 +5,8 @@ module "core";
 /*
 Planned core functions:
 General data: count, get, set
-Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range, in, some, every
-Sets: in
+Lists: first, rest, map, reduce, filter, reduceRight, zipWith, repeat, range, in, some, every, without
+Sets/Bags: in, insert, remove
 Maps: keys, values
 Math: add, subtract, multiply, divide, modulo, max, min, floor, ceil, binary.add, binary.or, binary.xor, binary.not
 Logic: and, or, not
