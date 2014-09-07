@@ -265,11 +265,12 @@ Precendence | Expression/Operator | Associativity
 10 | `&` | Left
 11 | `|` | Left
 12 | `=` | Left
-13 | If Expression | Right
-14 | Let Expression | Right
-15 | Function Expression | Right
-16 | `,` | Left
-17 | `;` | Left
+13 | Import Expression | Left
+14 | If Expression | Right
+15 | Let Expression | Right
+16 | Function Expression | Right
+17 | `,` | Left
+18 | `;` | Left
 
 ##Statements
 

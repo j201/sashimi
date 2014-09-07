@@ -2,6 +2,7 @@ import Text.Parsec.Prim
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Token (symbol)
+import Text.Parsec.Expr
 import Control.Monad
 import Data.Char (isSpace)
 
@@ -17,8 +18,16 @@ data Statement = Definition String Expr
 -- name, default, is rest
 data FunctionBinding = FunctionBinding String (Maybe Expr) Bool
 
+instance Show FunctionBinding where
+    show (FunctionBinding s (Just e) False) = s ++ "=" ++ show e
+    show (FunctionBinding s Nothing b) = (if b then "&" else "") ++ s
+
 data FunctionBody = FunctionBody [FunctionBinding] Expr
 
+instance Show FunctionBody where
+    show (FunctionBody bs e) = commaJoin (map show bs) ++ ": " ++ show e
+
+-- is this really a good thing to use instead of strings?
 data Op = Add | Subtract | Multiply | Divide | Exp | Not | GT | LT | GTE | LTE |
           Eq | NotEq | And | Or | WithTag
 
@@ -46,6 +55,7 @@ instance Show Literal where
     show (Bag b) = "#[" ++ commaJoin (map show b) ++ "]"
     show (Set s) = "#{" ++ commaJoin (map show s) ++ "}"
     show (List l) = "[" ++ commaJoin (map show l) ++ "]"
+    show (Function bs) = "fn [" ++ commaJoin (map show bs) ++ "]"
 
 data Expr = Literal Literal
           | Identifier String
@@ -53,19 +63,18 @@ data Expr = Literal Literal
           | IfExpr Expr Expr Expr
           | LetExpr [(String, Expr)] Expr
           | MapAccess Expr String
-          | BinaryOp Op Expr Expr
-          | UnaryOp Op Expr
+          | BinaryOp String Expr Expr
+          | UnaryOp String Expr
           | ExprGroup [Expr]
           | FunctionCall Expr [Expr]
-
-instance Show Expr where
-    show (Literal l) = show l
+        deriving (Show)
 
 saString :: Parser Literal
 saString = liftM (String . concat) $
            char '"' >>
            many (many1 (noneOf "\"\\") <|> string "\\\"" <|> string "\\\\")
 
+strOption :: Parser String -> Parser String
 strOption s = s <|> string ""
 
 concatM :: Monad m => [m [a]] -> m [a]
@@ -81,8 +90,9 @@ saNumber = liftM Number $
                                in concatM [string ".", many digit, strOption exp] <|> exp)]
 
 saBoolean :: Parser Literal
-saBoolean = liftM (Boolean . \s -> if s == "true" then True else False) $
-            string "true" <|> string "false"
+saBoolean = (string "true" <|> string "false") >>= \s ->
+            notFollowedBy (alphaNum <|> char '_') >>
+            return (Boolean (if s == "true" then True else False))
 
 saRegex :: Parser Literal
 saRegex = liftM Regex $
@@ -92,31 +102,33 @@ saRegex = liftM Regex $
                    many $ oneOf "gi"]
 
 saKeyword :: Parser Literal
-saKeyword = liftM Keyword $ char ':' >> saIdentifier
+saKeyword = liftM Keyword $ char ':' >> many1 (alphaNum <|> char '_')
 
 saNil :: Parser Literal
-saNil = string "nil" >> return Nil
+saNil = string "nil" >> notFollowedBy (alphaNum <|> char '_') >> return Nil
 
 saLiteral :: Parser Literal
-saLiteral = saNumber <|> saBoolean <|> saRegex <|> saKeyword <|> saNil <|> saList <|> saSet <|> saBag
+saLiteral = saNumber <|> try saBoolean <|> saRegex <|> saKeyword <|> saNil <|> saList <|> saSet <|> saBag <|> saMap <|> saFunction
 
-saExpr :: Parser Expr
-saExpr = liftM Literal saLiteral
+saNonLeftRec :: Parser Expr
+saNonLeftRec = saExprGroup <|> saUnaryOp <|> try saImportExpr <|> try saIfExpr <|> try saLetExpr <|> liftM Literal saLiteral <|> liftM Identifier saIdentifier
+
+spaced :: Parser a -> Parser a
+spaced p = spaces >> p >>= \x -> spaces >> return x
 
 delimited :: Parser [Expr]
-delimited = spaces >>
-            sepBy saExpr (spaces >> char ',' >> spaces) >>=
-            \es -> spaces >> return es
+delimited = sepBy saExpr (spaced $ char ',') 
 
 saMap :: Parser Literal
 saMap = let split2 (x:y:xs) = (x, y) : split2 xs
             split2 [] = []
-        in char '{' >> spaces >> delimited >>=
-           \es -> spaces >> char '}' >> return (Map $ split2 es)
+        in char '{' >> spaced delimited >>=
+           \es -> char '}' >> return (Map $ split2 es)
 
 bracketed :: String -> String -> ([Expr] -> a) -> Parser a
-bracketed start end f = string start >> spaces >> delimited >>=
-                        \es -> spaces >> string end >> return (f es)
+bracketed start end f = string start >>
+                        spaced delimited >>= \es ->
+                        string end >> return (f es)
 
 saList = bracketed "[" "]" List
 
@@ -125,17 +137,85 @@ saSet = bracketed "#{" "}" Set
 saBag = bracketed "#[" "]" Bag
 
 saIdentifier :: Parser String
-saIdentifier = many1 (alphaNum <|> char '_')
+saIdentifier = concatM [liftM (:[]) (letter <|> char '_'), many (alphaNum <|> char '_')] >>= \s ->
+               if any (== s) ["if", "let", "import", "fn", "when", "case", "module", "type"]
+               then fail (s ++ " is a reserved word")
+               else return s
 
 saRestParam :: Parser FunctionBinding
 saRestParam = (char '&' >> saIdentifier) >>= \name -> return $ FunctionBinding name Nothing True
 
-saFunctionBinding :: Parser FunctionBinding
-saFunctionBinding = saRestParam <|>
-                    (saIdentifier >>= \name ->
-                                       spaces >> char '=' >> spaces >>
-                                       saExpr >>= \val ->
-                                                   return $ FunctionBinding name (Just val) False) <|>
-                    (saIdentifier >>= \name -> return $ FunctionBinding name Nothing False)
+saNonRestParam :: Parser FunctionBinding
+saNonRestParam = try (saIdentifier >>= \name ->
+                      spaced (char '=') >>
+                      saExpr >>= \val ->
+                      return $ FunctionBinding name (Just val) False) <|>
+                 (saIdentifier >>= \name -> return $ FunctionBinding name Nothing False)
 
--- parseSashimi :: String -> Either [Statement] ParseError
+saFunctionBody :: Parser FunctionBody
+saFunctionBody = sepEndBy saNonRestParam (spaced $ char ',') >>= \params ->
+                 optionMaybe saRestParam >>= \rest ->
+                 char ':' >> spaces >>
+                 saExpr >>= \expr ->
+                 return $ FunctionBody (case rest of
+                                          Just p -> params ++ [p]
+                                          Nothing -> params)
+                                       expr
+
+saFunction :: Parser Literal
+saFunction = liftM Function $
+             string "fn" >>
+             spaced (liftM (:[]) saFunctionBody <|>
+                     (spaced (char '[') >>
+                      sepBy saFunctionBody (spaced $ char ',') >>= \bodies ->
+                      spaced (char ']') >>
+                      return bodies))
+
+saImportExpr :: Parser Expr
+saImportExpr = string "import" >>
+               many1 space >>
+               saString >>= \(String s) ->
+               return $ ImportExpr s
+
+saIfExpr :: Parser Expr
+saIfExpr = string "if" >> many1 space >>
+           saExpr >>= \cond ->
+           spaced (char ':') >>
+           saExpr >>= \cons ->
+           spaced (char ',') >>
+           saExpr >>= \alt ->
+           return $ IfExpr cond cons alt
+
+saLetExpr :: Parser Expr
+saLetExpr = string "let" >> many1 space >>
+            sepBy (saIdentifier >>= \id ->
+                   spaced (char '=') >>
+                   saExpr >>= \expr ->
+                   return (id, expr))
+                  (spaced $ char ',') >>= \bs ->
+            spaced (char ':') >>
+            saExpr >>= \expr ->
+            return $ LetExpr bs expr
+
+saExprGroup :: Parser Expr
+saExprGroup = bracketed "(" ")" ExprGroup
+
+-- left-recursive productions: BinaryOp, MapAccess, FunctionCall
+
+opInfix op = Infix (try (spaces >> string op) >> spaces >> return (\o1 o2 -> BinaryOp op o1 o2))
+opPrefix op = Prefix (try (spaces >> string op) >> spaces >> return (\o -> UnaryOp op o))
+
+saLeftRec :: Parser Expr
+saLeftRec = buildExpressionParser [[Postfix (try (spaces >> saKeyword) >>= \(Keyword kw) -> return (\o -> MapAccess o kw))],
+                                   [Postfix (try (spaces >> saExprGroup) >>=  \(ExprGroup args) -> return (\fn -> FunctionCall fn args))],
+                                   [opPrefix "-", opPrefix "!"],
+                                   [opInfix "**" AssocRight],
+                                   [opInfix "*" AssocLeft, opInfix "/" AssocLeft],
+                                   [opInfix "+" AssocLeft, opInfix "-" AssocLeft],
+                                   [opInfix ">" AssocLeft, opInfix "<" AssocLeft, opInfix ">=" AssocLeft, opInfix "<=" AssocLeft],
+                                   [opInfix "==" AssocLeft, opInfix "!=" AssocLeft],
+                                   [opInfix "&" AssocLeft],
+                                   [opInfix "|" AssocLeft]]
+                                  saNonLeftRec
+
+saExpr = spaced (try saLeftRec <|> saNonLeftRec)
