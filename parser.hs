@@ -7,6 +7,7 @@ import Text.Parsec.Token (symbol)
 import Text.Parsec.Expr
 import Text.Parsec.Error
 import Control.Monad
+import Control.Applicative ((<*))
 import Data.Char (isSpace)
 
 type Parser = Parsec String ()
@@ -119,7 +120,7 @@ saNonLeftRec :: Parser Expr
 saNonLeftRec = saExprGroup <|> try saImportExpr <|> try saIfExpr <|> try saLetExpr <|> liftM Literal saLiteral <|> liftM Identifier saIdentifier
 
 spaced :: Parser a -> Parser a
-spaced p = spaces >> p >>= \x -> spaces >> return x
+spaced p = spaces >> p <* spaces
 
 delimited :: Parser [Expr]
 delimited = sepBy saExpr (spaced $ char ',') 
@@ -272,10 +273,10 @@ saStatement :: Parser Statement
 saStatement = try saDefinition <|> try saMethodDefinition <|> try saModuleDeclaration <|> try saModuleExport <|> try saExportedDefinition <|> saExpression
 
 sashimiParser :: Parser [Statement]
-sashimiParser = many (spaced saStatement) >>= \ss -> eof >> return ss
+sashimiParser = many (spaced saStatement) <* eof
 
 parseSashimi :: String -> Either ParseError [Statement]
 parseSashimi = parse sashimiParser "Sashimi"
 
 parseExpr :: String -> Either ParseError Expr
-parseExpr = parse (saExpr >>= \expr -> eof >> return expr) "Sashimi Expr"
+parseExpr = parse (saExpr <* eof) "Sashimi Expr"
