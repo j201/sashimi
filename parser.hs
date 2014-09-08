@@ -1,8 +1,11 @@
+module Parser (Statement(..), Literal(..), Expr(..), FunctionBody(..), FunctionBinding(..), sashimiParser, parseSashimi, parseExpr) where
+
 import Text.Parsec.Prim
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Token (symbol)
 import Text.Parsec.Expr
+import Text.Parsec.Error
 import Control.Monad
 import Data.Char (isSpace)
 
@@ -14,15 +17,16 @@ data Statement = Definition String Expr
                | ModuleExport Expr
                | ExportedDefinition String Expr 
                | Expression Expr
+              deriving (Show)
 
 -- name, default, is rest
-data FunctionBinding = FunctionBinding String (Maybe Expr) Bool
+data FunctionBinding = FunctionBinding String (Maybe Expr) Bool deriving (Eq)
 
 instance Show FunctionBinding where
     show (FunctionBinding s (Just e) False) = s ++ "=" ++ show e
     show (FunctionBinding s Nothing b) = (if b then "&" else "") ++ s
 
-data FunctionBody = FunctionBody [FunctionBinding] Expr
+data FunctionBody = FunctionBody [FunctionBinding] Expr deriving (Eq)
 
 instance Show FunctionBody where
     show (FunctionBody bs e) = commaJoin (map show bs) ++ ": " ++ show e
@@ -32,7 +36,7 @@ data Op = Add | Subtract | Multiply | Divide | Exp | Not | GT | LT | GTE | LTE |
           Eq | NotEq | And | Or | WithTag
 
 data Literal = String String
-             | Number String
+             | Number Double
              | Boolean Bool
              | Regex String
              | Keyword String
@@ -42,12 +46,13 @@ data Literal = String String
              | Set [Expr]
              | List [Expr]
              | Function [FunctionBody]
+            deriving (Eq)
 
 commaJoin = foldl1 (\s x -> s ++ ", " ++ x)
 
 instance Show Literal where
     show (String s) = "\"" ++ s ++ "\""
-    show (Number s) = s
+    show (Number n) = show n
     show (Boolean b) = show b
     show (Keyword k) = ':' : k
     show Nil = "nil"
@@ -67,7 +72,7 @@ data Expr = Literal Literal
           | UnaryOp String Expr
           | ExprGroup [Expr]
           | FunctionCall Expr [Expr]
-        deriving (Show)
+        deriving (Show, Eq)
 
 saString :: Parser Literal
 saString = liftM (String . concat) $
@@ -81,7 +86,7 @@ concatM :: Monad m => [m [a]] -> m [a]
 concatM = liftM concat . sequence
 
 saNumber :: Parser Literal
-saNumber = liftM Number $
+saNumber = liftM (Number . read) $
            concatM [strOption $ string "-",
                     many1 digit,
                     strOption (let exp = concatM [string "e" <|> string "E",
@@ -108,10 +113,10 @@ saNil :: Parser Literal
 saNil = string "nil" >> notFollowedBy (alphaNum <|> char '_') >> return Nil
 
 saLiteral :: Parser Literal
-saLiteral = saNumber <|> try saBoolean <|> saRegex <|> saKeyword <|> saNil <|> saList <|> saSet <|> saBag <|> saMap <|> saFunction
+saLiteral = saNumber <|> try saBoolean <|> saRegex <|> saKeyword <|> try saNil <|> saList <|> saSet <|> saBag <|> saMap <|> try saFunction
 
 saNonLeftRec :: Parser Expr
-saNonLeftRec = saExprGroup <|> saUnaryOp <|> try saImportExpr <|> try saIfExpr <|> try saLetExpr <|> liftM Literal saLiteral <|> liftM Identifier saIdentifier
+saNonLeftRec = saExprGroup <|> try saImportExpr <|> try saIfExpr <|> try saLetExpr <|> liftM Literal saLiteral <|> liftM Identifier saIdentifier
 
 spaced :: Parser a -> Parser a
 spaced p = spaces >> p >>= \x -> spaces >> return x
@@ -138,7 +143,7 @@ saBag = bracketed "#[" "]" Bag
 
 saIdentifier :: Parser String
 saIdentifier = concatM [liftM (:[]) (letter <|> char '_'), many (alphaNum <|> char '_')] >>= \s ->
-               if any (== s) ["if", "let", "import", "fn", "when", "case", "module", "type"]
+               if any (== s) ["if", "let", "import", "fn", "when", "case", "module", "type", "export"]
                then fail (s ++ " is a reserved word")
                else return s
 
@@ -207,6 +212,7 @@ opPrefix op = Prefix (try (spaces >> string op) >> spaces >> return (\o -> Unary
 
 saLeftRec :: Parser Expr
 saLeftRec = buildExpressionParser [[Postfix (try (spaces >> saKeyword) >>= \(Keyword kw) -> return (\o -> MapAccess o kw))],
+                                   [opInfix "^" AssocLeft],
                                    [Postfix (try (spaces >> saExprGroup) >>=  \(ExprGroup args) -> return (\fn -> FunctionCall fn args))],
                                    [opPrefix "-", opPrefix "!"],
                                    [opInfix "**" AssocRight],
@@ -218,4 +224,58 @@ saLeftRec = buildExpressionParser [[Postfix (try (spaces >> saKeyword) >>= \(Key
                                    [opInfix "|" AssocLeft]]
                                   saNonLeftRec
 
+saExpr :: Parser Expr
 saExpr = spaced (try saLeftRec <|> saNonLeftRec)
+
+saDefinition :: Parser Statement
+saDefinition = saIdentifier >>= \i ->
+               spaces >> char '=' >>
+               saExpr >>= \expr ->
+               char ';' >>
+               return (Definition i expr)
+
+saMethodDefinition :: Parser Statement
+saMethodDefinition = saIdentifier >>= \tag ->
+                     spaced (char '#') >>
+                     saIdentifier >>= \name ->
+                     spaces >> char '=' >>
+                     saExpr >>= \expr ->
+                     return (MethodDefinition tag name expr)
+
+saModuleDeclaration :: Parser Statement
+saModuleDeclaration = string "module" >>
+                      spaced saString >>= \(String s) ->
+                      char ';' >>
+                      return (ModuleDeclaration s)
+
+saModuleExport :: Parser Statement
+saModuleExport = string "export" >>
+                 spaces >> char '=' >>
+                 saExpr >>= \expr ->
+                 char ';' >>
+                 return (ModuleExport expr)
+
+saExportedDefinition :: Parser Statement
+saExportedDefinition = string "export" >>
+                       spaced saIdentifier >>= \i ->
+                       char '=' >>
+                       saExpr >>= \expr ->
+                       char ';' >>
+                       return (ExportedDefinition i expr)
+
+saExpression :: Parser Statement
+saExpression = saExpr >>= \expr ->
+               char ';' >>
+               return (Expression expr)
+
+saStatement :: Parser Statement
+saStatement = try saDefinition <|> try saMethodDefinition <|> try saModuleDeclaration <|> try saModuleExport <|> try saExportedDefinition <|> saExpression
+
+sashimiParser :: Parser [Statement]
+sashimiParser = many (spaced saStatement) >>= \ss -> eof >> return ss
+
+parseSashimi :: String -> Either ParseError [Statement]
+parseSashimi = parse sashimiParser "Sashimi"
+
+parseExpr :: String -> Either ParseError Expr
+parseExpr = parse (saExpr >>= \expr -> eof >> return expr) "Sashimi Expr"
