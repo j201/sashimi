@@ -1,10 +1,7 @@
 import Parser
+import CoreNative
 import Text.Parsec.Error
 import Data.HashMap.Lazy hiding (map, filter)
-
-type Scope = HashMap String SaVal
-
-data SaVal = SaVal Literal | Closure Literal Scope | SaList [SaVal] deriving (Eq)
 
 commaJoin = foldl1 (\s x -> s ++ ", " ++ x)
 
@@ -36,8 +33,27 @@ arity (FunctionBody bs _) = let min = (length $ filter (\(FunctionBinding _ d b)
                                then HasRest min
                                else NoRest min (length bs)
 
+evalClosure :: SaVal -> [SaVal] -> SaVal
+evalClosure (Closure (Function bodies) fScope) args =
+    let ba = head $ filter ((matchArity $ length args) . snd) $ zip bodies $ map arity bodies
+        ar = snd ba
+        (FunctionBody bs expr) = fst ba
+        resolveBindings bs args = let notRest = (filter (\(FunctionBinding _ _ b) -> not b) bs)
+                                      passedArgs = foldl (\acc (FunctionBinding name _ _, v) ->
+                                                          insert name v acc)
+                                                          (empty :: Scope) (zip notRest args)
+                                      unused = drop (min (length notRest) (length args)) bs
+                                  in foldl (\acc (FunctionBinding name def rest) ->
+                                              if rest
+                                              then insert name (SaList $ drop (length notRest) args) acc
+                                              else case def of { Just val -> insert name (evalExpr fScope val) acc })
+                                          (passedArgs :: Scope) unused
+    in evalExpr (union (resolveBindings bs args) fScope) expr
+
+
 evalExpr :: Scope -> Expr -> SaVal
 evalExpr s (Literal (Function bs)) = Closure (Function bs) s
+evalExpr s (Literal (List xs)) = SaList (map (evalExpr s) xs)
 evalExpr _ (Literal l) = SaVal l
 evalExpr s (Identifier i) = s ! i
 evalExpr s (IfExpr a b c) = if case evalExpr s a of
@@ -61,21 +77,10 @@ evalExpr s (BinaryOp "!=" x y) = SaVal (Boolean (evalExpr s x /= evalExpr s y))
 evalExpr s (BinaryOp "&" x y) = logicBinOp (&&) s x y
 evalExpr s (BinaryOp "|" x y) = logicBinOp (||) s x y
 evalExpr s (ExprGroup es) = last $ map (evalExpr s) es
-evalExpr s (FunctionCall f args) = let Closure (Function bodies) fScope = evalExpr s f
-                                       ba = head $ filter ((matchArity $ length args) . snd) $ zip bodies $ map arity bodies
-                                       ar = snd ba
-                                       (FunctionBody bs expr) = fst ba
-                                       resolveBindings bs args = let notRest = (filter (\(FunctionBinding _ _ b) -> not b) bs)
-                                                                     passedArgs = foldl (\acc (FunctionBinding name _ _, v) ->
-                                                                                           insert name (evalExpr s v) acc)
-                                                                                        (empty :: Scope) (zip notRest args)
-                                                                     unused = drop (min (length notRest) (length args)) bs
-                                                                  in foldl (\acc (FunctionBinding name def rest) ->
-                                                                              if rest
-                                                                              then insert name (SaList $ map (evalExpr s) $ drop (length notRest) args) acc
-                                                                              else case def of { Just val -> insert name (evalExpr fScope val) acc })
-                                                                           (passedArgs :: Scope) unused
-                                   in evalExpr (union (resolveBindings bs args) fScope) expr
-
+evalExpr s (FunctionCall (Identifier i) args) = if member i nativeFns
+                                                then (nativeFns ! i) (map (evalExpr s) args)
+                                                else evalClosure (evalExpr s (Identifier i)) (map (evalExpr s) args)
+evalExpr s (FunctionCall f args) = evalClosure (evalExpr s f) (map (evalExpr s) args)
+                                   
 eval :: String -> Either ParseError SaVal
 eval s = fmap (evalExpr empty) (parseExpr s)
