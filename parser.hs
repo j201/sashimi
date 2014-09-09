@@ -17,6 +17,7 @@ data Statement = Definition String Expr
                | ModuleDeclaration String
                | ModuleExport Expr
                | ExportedDefinition String Expr 
+               | ImportStatement String
                | Expression Expr
               deriving (Show)
 
@@ -32,10 +33,6 @@ data FunctionBody = FunctionBody [FunctionBinding] Expr deriving (Eq)
 instance Show FunctionBody where
     show (FunctionBody bs e) = commaJoin (map show bs) ++ ": " ++ show e
 
--- is this really a good thing to use instead of strings?
-data Op = Add | Subtract | Multiply | Divide | Exp | Not | GT | LT | GTE | LTE |
-          Eq | NotEq | And | Or | WithTag
-
 data Literal = String String
              | Number Double
              | Boolean Bool
@@ -49,7 +46,7 @@ data Literal = String String
              | Function [FunctionBody]
             deriving (Eq)
 
-commaJoin = foldl1 (\s x -> s ++ ", " ++ x)
+commaJoin xs = if xs == [] then "" else foldl1 (\s x -> s ++ ", " ++ x) xs
 
 instance Show Literal where
     show (String s) = "\"" ++ s ++ "\""
@@ -76,9 +73,10 @@ data Expr = Literal Literal
         deriving (Show, Eq)
 
 saString :: Parser Literal
-saString = liftM (String . concat) $
+saString = char '"' >>
+           many (many1 (noneOf "\"\\") <|> string "\\\"" <|> string "\\\\") >>= \s ->
            char '"' >>
-           many (many1 (noneOf "\"\\") <|> string "\\\"" <|> string "\\\\")
+           return (String $ concat s)
 
 strOption :: Parser String -> Parser String
 strOption s = s <|> string ""
@@ -108,13 +106,13 @@ saRegex = liftM Regex $
                    many $ oneOf "gi"]
 
 saKeyword :: Parser Literal
-saKeyword = liftM Keyword $ char ':' >> many1 (alphaNum <|> char '_')
+saKeyword = liftM Keyword $ char '.' >> many1 (alphaNum <|> char '_')
 
 saNil :: Parser Literal
 saNil = string "nil" >> notFollowedBy (alphaNum <|> char '_') >> return Nil
 
 saLiteral :: Parser Literal
-saLiteral = saNumber <|> try saBoolean <|> saRegex <|> saKeyword <|> try saNil <|> saList <|> saSet <|> saBag <|> saMap <|> try saFunction
+saLiteral = saNumber <|> try saBoolean <|> saRegex <|> saKeyword <|> saString <|> try saNil <|> saList <|> saSet <|> saBag <|> saMap <|> try saFunction
 
 saNonLeftRec :: Parser Expr
 saNonLeftRec = saExprGroup <|> try saImportExpr <|> try saIfExpr <|> try saLetExpr <|> liftM Literal saLiteral <|> liftM Identifier saIdentifier
@@ -264,13 +262,19 @@ saExportedDefinition = string "export" >>
                        char ';' >>
                        return (ExportedDefinition i expr)
 
+saImportStatement :: Parser Statement
+saImportStatement = string "import" >>
+                    spaced saIdentifier >>= \i ->
+                    char ';' >>
+                    return (ImportStatement i)
+
 saExpression :: Parser Statement
 saExpression = saExpr >>= \expr ->
                char ';' >>
                return (Expression expr)
 
 saStatement :: Parser Statement
-saStatement = try saDefinition <|> try saMethodDefinition <|> try saModuleDeclaration <|> try saModuleExport <|> try saExportedDefinition <|> saExpression
+saStatement = try saDefinition <|> try saMethodDefinition <|> try saModuleDeclaration <|> try saModuleExport <|> try saExportedDefinition <|> try saImportStatement <|> saExpression
 
 sashimiParser :: Parser [Statement]
 sashimiParser = many (spaced saStatement) <* eof

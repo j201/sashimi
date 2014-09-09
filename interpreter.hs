@@ -1,25 +1,25 @@
 import Parser
 import CoreNative
+import SashimiCore
 import Text.Parsec.Error
+import Data.Hashable
 import Data.HashMap.Lazy hiding (map, filter)
+import qualified Data.HashMap.Strict as Strict
 
-commaJoin = foldl1 (\s x -> s ++ ", " ++ x)
-
-instance Show SaVal where
-    show (SaVal v) = show v
-    show (Closure v _) = show v
-    show (SaList ss) = commaJoin (map show ss)
+-- todo: modules
+-- loaded modules, current module, current scope
+data ProgState = ProgState (HashMap String SaVal) (String, SaVal) Scope
 
 binOp :: (Double -> Double -> SaVal) -> Scope -> Expr -> Expr -> SaVal
 binOp f s x y = case (evalExpr s x, evalExpr s y) of
-                  (SaVal (Number x'), SaVal (Number y')) -> f x' y'
+                  (Primitive (Number x'), Primitive (Number y')) -> f x' y'
 
-binOpN f = binOp (\x y -> SaVal $ Number (f x y))
-binOpB f = binOp (\x y -> SaVal $ Boolean (f x y))
+binOpN f = binOp (\x y -> Primitive $ Number (f x y))
+binOpB f = binOp (\x y -> Primitive $ Boolean (f x y))
 
 logicBinOp :: (Bool-> Bool -> Bool) -> Scope -> Expr -> Expr -> SaVal
 logicBinOp f s x y = case (evalExpr s x, evalExpr s y) of
-                       (SaVal (Boolean x'), SaVal (Boolean y')) -> SaVal (Boolean (f x' y'))
+                       (Primitive (Boolean x'), Primitive (Boolean y')) -> Primitive (Boolean (f x' y'))
 
 data Arity = NoRest Int Int | HasRest Int
 
@@ -50,15 +50,14 @@ evalClosure (Closure (Function bodies) fScope) args =
                                           (passedArgs :: Scope) unused
     in evalExpr (union (resolveBindings bs args) fScope) expr
 
-
 evalExpr :: Scope -> Expr -> SaVal
 evalExpr s (Literal (Function bs)) = Closure (Function bs) s
 evalExpr s (Literal (List xs)) = SaList (map (evalExpr s) xs)
-evalExpr _ (Literal l) = SaVal l
+evalExpr _ (Literal l) = Primitive l
 evalExpr s (Identifier i) = s ! i
 evalExpr s (IfExpr a b c) = if case evalExpr s a of
-                                 SaVal Nil -> False
-                                 SaVal (Boolean False) -> False
+                                 Primitive Nil -> False
+                                 Primitive (Boolean False) -> False
                                  _ -> True
                             then evalExpr s c
                             else evalExpr s b
@@ -72,15 +71,40 @@ evalExpr s (BinaryOp ">" x y) = binOpB (>) s x y
 evalExpr s (BinaryOp ">=" x y) = binOpB (>=) s x y
 evalExpr s (BinaryOp "<" x y) = binOpB (<) s x y
 evalExpr s (BinaryOp "<=" x y) = binOpB (<=) s x y
-evalExpr s (BinaryOp "==" x y) = SaVal (Boolean (evalExpr s x == evalExpr s y))
-evalExpr s (BinaryOp "!=" x y) = SaVal (Boolean (evalExpr s x /= evalExpr s y))
+evalExpr s (BinaryOp "==" x y) = Primitive (Boolean (evalExpr s x == evalExpr s y))
+evalExpr s (BinaryOp "!=" x y) = Primitive (Boolean (evalExpr s x /= evalExpr s y))
 evalExpr s (BinaryOp "&" x y) = logicBinOp (&&) s x y
 evalExpr s (BinaryOp "|" x y) = logicBinOp (||) s x y
 evalExpr s (ExprGroup es) = last $ map (evalExpr s) es
-evalExpr s (FunctionCall (Identifier i) args) = if member i nativeFns
-                                                then (nativeFns ! i) (map (evalExpr s) args)
-                                                else evalClosure (evalExpr s (Identifier i)) (map (evalExpr s) args)
-evalExpr s (FunctionCall f args) = evalClosure (evalExpr s f) (map (evalExpr s) args)
-                                   
+evalExpr s (MapAccess m kw) = case evalExpr s m of
+                                (SaMap m) -> m ! (Primitive $ Keyword kw)
+evalExpr s (ImportExpr "Sashimi.Native") = nativeFns -- HACK
+evalExpr s (FunctionCall f args) = case evalExpr s f of
+                                     (NativeFunction f) -> f (map (evalExpr s) args)
+                                     _ -> evalClosure (evalExpr s f) (map (evalExpr s) args)
+
+
+insKW :: String -> SaVal -> SaVal -> SaVal
+insKW k v (SaMap m) = SaMap (Strict.insert (Primitive $ Keyword k) v m)
+
+evalStatement :: ProgState -> Statement -> ProgState
+evalStatement (ProgState ms m s) (Definition name expr) = ProgState ms m (insert name (evalExpr s expr) s)
+evalStatement (ProgState ms (mName, mVal) s) (ModuleDeclaration newMName) = if mName /= ""
+                                                                            then ProgState (insert mName mVal ms) (newMName, SaMap empty) empty -- todo: use defaultScope
+                                                                            else ProgState ms (newMName, SaMap empty) empty
+evalStatement (ProgState ms (mName, mMap) s) (ExportedDefinition name expr) = let val = evalExpr s expr
+                                                                              in ProgState ms (mName, insKW name val mMap) (insert name val s)
+
+emptyState :: ProgState
+emptyState = ProgState empty ("", SaMap empty) empty
+
+mapKeys :: (Hashable k', Eq k') => (k -> k') -> HashMap k v -> HashMap k' v
+mapKeys f m = fromList $ map (\(k, v) -> (f k, v)) $ toList m
+
+defaultScope :: Scope
+defaultScope = let (Right ss) = parseSashimi coreText
+                   (ProgState _ (_, (SaMap m)) _) = foldl evalStatement emptyState ss
+               in mapKeys (\(Primitive (Keyword s)) -> s) m -- core should only use keyword exports
+
 eval :: String -> Either ParseError SaVal
-eval s = fmap (evalExpr empty) (parseExpr s)
+eval s = fmap (evalExpr defaultScope) (parseExpr s)
