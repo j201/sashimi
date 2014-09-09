@@ -59,9 +59,13 @@ evalExpr s (IfExpr a b c) = if case evalExpr s a of
                                  Primitive Nil -> False
                                  Primitive (Boolean False) -> False
                                  _ -> True
-                            then evalExpr s c
-                            else evalExpr s b
-evalExpr s (LetExpr bs e) = evalExpr (foldl (\acc (i, v) -> insert i (evalExpr acc v) acc) s bs) e
+                            then evalExpr s b
+                            else evalExpr s c
+evalExpr s (LetExpr bs e) = evalExpr (foldl (\acc (i, v) ->
+                                               insert i (case evalExpr acc v of
+                                                          x@(Closure l s) -> Closure l (insert i x s)
+                                                          x -> x)
+                                                        acc) s bs) e
 evalExpr s (BinaryOp "+" x y) = binOpN (+) s x y
 evalExpr s (BinaryOp "-" x y) = binOpN (-) s x y
 evalExpr s (BinaryOp "*" x y) = binOpN (*) s x y
@@ -92,7 +96,9 @@ evalStatement (ProgState ms m s) (Definition name expr) = ProgState ms m (insert
 evalStatement (ProgState ms (mName, mVal) s) (ModuleDeclaration newMName) = if mName /= ""
                                                                             then ProgState (insert mName mVal ms) (newMName, SaMap empty) empty -- todo: use defaultScope
                                                                             else ProgState ms (newMName, SaMap empty) empty
-evalStatement (ProgState ms (mName, mMap) s) (ExportedDefinition name expr) = let val = evalExpr s expr
+evalStatement (ProgState ms (mName, mMap) s) (ExportedDefinition name expr) = let val = case evalExpr s expr of
+                                                                                          x@(Closure l s') -> Closure l (insert name x s')
+                                                                                          x -> x
                                                                               in ProgState ms (mName, insKW name val mMap) (insert name val s)
 
 emptyState :: ProgState
