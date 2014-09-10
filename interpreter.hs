@@ -36,19 +36,19 @@ arity (FunctionBody bs _) = let min = (length $ filter (\(FunctionBinding _ d b)
 evalClosure :: SaVal -> [SaVal] -> SaVal
 evalClosure (Closure (Function bodies) fScope) args =
     let ba = head $ filter ((matchArity $ length args) . snd) $ zip bodies $ map arity bodies
-        ar = snd ba
-        (FunctionBody bs expr) = fst ba
-        resolveBindings bs args = let notRest = (filter (\(FunctionBinding _ _ b) -> not b) bs)
-                                      passedArgs = foldl (\acc (FunctionBinding name _ _, v) ->
-                                                          insert name v acc)
-                                                          (empty :: Scope) (zip notRest args)
-                                      unused = drop (min (length notRest) (length args)) bs
-                                  in foldl (\acc (FunctionBinding name def rest) ->
-                                              if rest
-                                              then insert name (SaList $ drop (length notRest) args) acc
-                                              else case def of { Just val -> insert name (evalExpr fScope val) acc })
-                                          (passedArgs :: Scope) unused
-    in evalExpr (union (resolveBindings bs args) fScope) expr
+        fArity = snd ba
+        (FunctionBody bindings expr) = fst ba
+        resolveBindings bindings args = let notRest = (filter (\(FunctionBinding _ _ b) -> not b) bindings)
+                                            passedArgs = foldl (\acc (FunctionBinding name _ _, v) ->
+                                                                insert name v acc)
+                                                                empty (zip notRest args)
+                                            unused = drop (min (length notRest) (length args)) bindings
+                                        in foldl (\acc (FunctionBinding name def rest) ->
+                                                    if rest
+                                                    then insert name (SaList $ drop (length notRest) args) acc
+                                                    else case def of { Just val -> insert name (evalExpr fScope val) acc })
+                                                 passedArgs unused
+    in evalExpr (union (resolveBindings bindings args) fScope) expr
 
 evalExpr :: Scope -> Expr -> SaVal
 evalExpr s (Literal (Function bs)) = Closure (Function bs) s
@@ -63,7 +63,7 @@ evalExpr s (IfExpr a b c) = if case evalExpr s a of
                             else evalExpr s c
 evalExpr s (LetExpr bs e) = evalExpr (foldl (\acc (i, v) ->
                                                insert i (case evalExpr acc v of
-                                                          x@(Closure l s) -> Closure l (insert i x s)
+                                                          (Closure l s) -> let c = Closure l (insert i c s) in c
                                                           x -> x)
                                                         acc) s bs) e
 evalExpr s (BinaryOp "+" x y) = binOpN (+) s x y
@@ -97,7 +97,7 @@ evalStatement (ProgState ms (mName, mVal) s) (ModuleDeclaration newMName) = if m
                                                                             then ProgState (insert mName mVal ms) (newMName, SaMap empty) empty -- todo: use defaultScope
                                                                             else ProgState ms (newMName, SaMap empty) empty
 evalStatement (ProgState ms (mName, mMap) s) (ExportedDefinition name expr) = let val = case evalExpr s expr of
-                                                                                          x@(Closure l s') -> Closure l (insert name x s')
+                                                                                          (Closure l s') -> let c = Closure l (insert name c s') in c
                                                                                           x -> x
                                                                               in ProgState ms (mName, insKW name val mMap) (insert name val s)
 
