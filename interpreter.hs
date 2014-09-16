@@ -1,4 +1,5 @@
 import Parser
+import InterpreterTypes
 import CoreNative
 import SashimiCore
 import Text.Parsec.Error
@@ -50,6 +51,10 @@ evalClosure (Closure (Function bodies) fScope) args =
                                                  passedArgs unused
     in evalExpr (union (resolveBindings bindings args) fScope) expr
 
+evalFn :: SaVal -> [SaVal] -> SaVal
+evalFn (NativeFunction f) = f
+evalFn x = evalClosure x
+
 evalExpr :: Scope -> Expr -> SaVal
 evalExpr s (Literal (Function bs)) = Closure (Function bs) s
 evalExpr s (Literal (List xs)) = SaList (map (evalExpr s) xs)
@@ -83,10 +88,7 @@ evalExpr s (ExprGroup es) = last $ map (evalExpr s) es
 evalExpr s (MapAccess m kw) = case evalExpr s m of
                                 (SaMap m) -> m ! (Primitive $ Keyword kw)
 evalExpr s (ImportExpr "Sashimi.Native") = nativeFns -- HACK
-evalExpr s (FunctionCall f args) = case evalExpr s f of
-                                     (NativeFunction f) -> f (map (evalExpr s) args)
-                                     _ -> evalClosure (evalExpr s f) (map (evalExpr s) args)
-
+evalExpr s (FunctionCall f args) = evalFn (evalExpr s f) (map (evalExpr s) args)
 
 insKW :: String -> SaVal -> SaVal -> SaVal
 insKW k v (SaMap m) = SaMap (Strict.insert (Primitive $ Keyword k) v m)
