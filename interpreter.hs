@@ -84,6 +84,10 @@ evalExpr s (BinaryOp "==" x y) = Primitive (Boolean (evalExpr s x == evalExpr s 
 evalExpr s (BinaryOp "!=" x y) = Primitive (Boolean (evalExpr s x /= evalExpr s y))
 evalExpr s (BinaryOp "&" x y) = logicBinOp (&&) s x y
 evalExpr s (BinaryOp "|" x y) = logicBinOp (||) s x y
+evalExpr s (UnaryOp "!" x) = case evalExpr s x of
+                               (Primitive (Boolean b)) -> (Primitive $ Boolean $ not b)
+evalExpr s (UnaryOp "-" x) = case evalExpr s x of
+                               (Primitive (Number x)) -> (Primitive $ Number (-x))
 evalExpr s (ExprGroup es) = last $ map (evalExpr s) es
 evalExpr s (MapAccess m kw) = case evalExpr s m of
                                 (SaMap m) -> m ! (Primitive $ Keyword kw)
