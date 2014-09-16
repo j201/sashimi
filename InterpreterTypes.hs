@@ -1,5 +1,11 @@
 module InterpreterTypes (Scope, SaVal(..)) where
 
+import Parser
+import Data.Hashable
+import Data.HashMap.Lazy hiding (map, filter)
+import qualified Data.HashMap.Strict as Strict
+import Utils
+
 type Scope = HashMap String SaVal
 
 data SaVal = Primitive Literal

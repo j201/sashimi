@@ -63,6 +63,7 @@ instance Show Literal where
 data Expr = Literal Literal
           | Identifier String
           | ImportExpr String
+          | ImportAsExpr String String
           | IfExpr Expr Expr Expr
           | LetExpr [(String, Expr)] Expr
           | MapAccess Expr String
@@ -267,6 +268,14 @@ saImportStatement = string "import" >>
                     spaced saIdentifier >>= \i ->
                     char ';' >>
                     return (ImportStatement i)
+
+saImportAsStatement :: Parser Statement
+saImportAsStatement = string "import" >>
+                      spaced saIdentifier >>= \i ->
+                      string "as" >>
+                      spaced saIdentifier >>= \i2 ->
+                      char ';' >>
+                      return (ImportAsStatement i i2)
 
 saExpression :: Parser Statement
 saExpression = saExpr >>= \expr ->

@@ -2,7 +2,7 @@ module CoreNative (SaVal(..), Scope(..), nativeFns) where
 
 import Parser
 import InterpreterTypes
-import Data.Hashable
+import Interpreter
 import Data.HashMap.Lazy hiding (map, filter)
 import qualified Data.HashMap.Strict as Strict
 
