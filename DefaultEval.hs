@@ -10,8 +10,12 @@ import Data.HashMap.Lazy hiding (map, filter)
 nativeFnsScope :: Scope
 nativeFnsScope = toScope nativeFns
 
+emptyState :: ProgState
+emptyState = ProgState empty ("", SaMap empty) empty
+
 defaultScope :: Scope
-defaultScope = let (Right ss) = parseSashimi coreText
+defaultScope = union nativeFnsScope $
+               let (Right ss) = parseSashimi coreText
                    (ProgState _ (_, (SaMap m)) _) = foldl (evalStatement nativeFnsScope) emptyState ss
                in mapKeys (\(Primitive (Keyword s)) -> s) m -- core should only use keyword exports
 
