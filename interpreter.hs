@@ -58,9 +58,13 @@ evalClosure (Closure (Function bodies) fScope) args =
 
 evalFn :: SaVal -> [SaVal] -> SaVal
 evalFn (NativeFunction f) = f
-evalFn (TagFn fns mdef) = let this = (\args -> case (args, mdef) of
-                                                 ([], Just f) -> evalFn f []
-                                                 (((TaggedVal v (t:ts)):xs), _) -> case lookup t fns of
+evalFn (TagFn fns mdef) = (\args -> case (args, mdef) of
+                                      ([], Just f) -> evalFn f []
+                                      (((TaggedVal v tags):xs), _) -> case maybeHead $ filter (/= Nothing) $ map ((flip Strict.lookup) fns) tags of
+                                                                        (Just (Just f)) -> evalFn f (v:xs)
+                                                                        Nothing -> case mdef of { (Just f) -> evalFn f (v:xs) }
+                                      (xs, Just f) -> evalFn f xs)
+
 evalFn x = evalClosure x
 
 evalExpr :: Scope -> Expr -> SaVal
@@ -92,8 +96,9 @@ evalExpr s (BinaryOp "==" x y) = Primitive (Boolean (evalExpr s x == evalExpr s 
 evalExpr s (BinaryOp "!=" x y) = Primitive (Boolean (evalExpr s x /= evalExpr s y))
 evalExpr s (BinaryOp "&" x y) = logicBinOp (&&) s x y
 evalExpr s (BinaryOp "|" x y) = logicBinOp (||) s x y
-evalExpr s (BinaryOp "~" x y) = case evalExpr s y of -- TODO: switch over to [String]
-                                  (Primitive (String tag)) -> TaggedVal (evalExpr s x) tag
+evalExpr s (BinaryOp "~" x y) = case (evalExpr s x, evalExpr s y) of
+                                  (Primitive (String tag), TaggedVal v tags) -> TaggedVal v (tag:tags)
+                                  (Primitive (String tag), v) -> TaggedVal v [tag]
 evalExpr s (UnaryOp "!" x) = case evalExpr s x of
                                (Primitive (Boolean b)) -> (Primitive $ Boolean $ not b)
 evalExpr s (UnaryOp "-" x) = case evalExpr s x of
