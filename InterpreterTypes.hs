@@ -13,6 +13,8 @@ data SaVal = Primitive Literal
            | SaList [SaVal]
            | SaMap (Strict.HashMap SaVal SaVal)
            | NativeFunction ([SaVal] -> SaVal)
+           | TaggedVal SaVal [String]
+           | TagFn (HashMap String SaVal) (Maybe SaVal) -- second value is default
 
 instance Eq SaVal where
     (NativeFunction _) == _ = False

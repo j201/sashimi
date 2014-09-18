@@ -58,6 +58,9 @@ evalClosure (Closure (Function bodies) fScope) args =
 
 evalFn :: SaVal -> [SaVal] -> SaVal
 evalFn (NativeFunction f) = f
+evalFn (TagFn fns mdef) = let this = (\args -> case (args, mdef) of
+                                                 ([], Just f) -> evalFn f []
+                                                 (((TaggedVal v (t:ts)):xs), _) -> case lookup t fns of
 evalFn x = evalClosure x
 
 evalExpr :: Scope -> Expr -> SaVal
@@ -89,6 +92,8 @@ evalExpr s (BinaryOp "==" x y) = Primitive (Boolean (evalExpr s x == evalExpr s 
 evalExpr s (BinaryOp "!=" x y) = Primitive (Boolean (evalExpr s x /= evalExpr s y))
 evalExpr s (BinaryOp "&" x y) = logicBinOp (&&) s x y
 evalExpr s (BinaryOp "|" x y) = logicBinOp (||) s x y
+evalExpr s (BinaryOp "~" x y) = case evalExpr s y of -- TODO: switch over to [String]
+                                  (Primitive (String tag)) -> TaggedVal (evalExpr s x) tag
 evalExpr s (UnaryOp "!" x) = case evalExpr s x of
                                (Primitive (Boolean b)) -> (Primitive $ Boolean $ not b)
 evalExpr s (UnaryOp "-" x) = case evalExpr s x of
@@ -96,7 +101,6 @@ evalExpr s (UnaryOp "-" x) = case evalExpr s x of
 evalExpr s (ExprGroup es) = last $ map (evalExpr s) es
 evalExpr s (MapAccess m kw) = case evalExpr s m of
                                 (SaMap m) -> m ! (Primitive $ Keyword kw)
--- evalExpr s (ImportExpr "Sashimi.Native") = nativeFns -- HACK
 evalExpr s (FunctionCall f args) = evalFn (evalExpr s f) (map (evalExpr s) args)
 
 insKW :: String -> SaVal -> SaVal -> SaVal
