@@ -212,6 +212,7 @@ opPrefix op = Prefix (try (spaces >> string op) >> spaces >> return (\o -> Unary
 saLeftRec :: Parser Expr
 saLeftRec = buildExpressionParser [[Postfix (try (spaces >> saKeyword) >>= \(Keyword kw) -> return (\o -> MapAccess o kw))],
                                    [opInfix "^" AssocLeft],
+                                   [opInfix "~" AssocLeft],
                                    [Postfix (try (spaces >> saExprGroup) >>=  \(ExprGroup args) -> return (\fn -> FunctionCall fn args))],
                                    [opPrefix "-", opPrefix "!"],
                                    [opInfix "**" AssocRight],
