@@ -1,4 +1,4 @@
-module InterpreterTypes (Scope, SaVal(..), toSaList, LazyListRet(..)) where
+module InterpreterTypes (Scope, SaVal(..), toSaList, LazyListRet(..), defaultTag) where
 
 import Parser
 import Data.Hashable
@@ -28,7 +28,7 @@ data SaVal = Primitive Literal
            | SaMap (Strict.HashMap SaVal SaVal)
            | NativeFunction ([SaVal] -> SaVal)
            | TaggedVal SaVal [String]
-           | TagFn (HashMap String SaVal) (Maybe SaVal) -- second value is default
+           | TagFunction (HashMap String SaVal) (Maybe SaVal) -- second value is default
 
 instance Eq SaVal where
     (Primitive l1) == (Primitive l2) = l1 == l2
@@ -51,6 +51,19 @@ instance Show SaVal where
 instance Hashable SaVal where
     hashWithSalt n (Primitive (String s)) = hashWithSalt n s
     hashWithSalt n (Primitive (Keyword s)) = hashWithSalt n ('.' : s)
+
+defaultTag :: SaVal -> String
+defaultTag (Primitive Nil) ="Nil"
+defaultTag (Primitive (Number _)) ="Number"
+defaultTag (Primitive (String _)) ="String"
+defaultTag (Primitive (Boolean _)) ="Boolean"
+defaultTag (Primitive (Regex _)) ="Regex"
+defaultTag (Primitive (Keyword _)) ="Keyword"
+defaultTag (Closure _ _) = "Function"
+defaultTag (NativeFunction _) = "Function"
+defaultTag (TagFunction _ _) = "Function"
+defaultTag (SaList _ _) = "List"
+defaultTag (SaMap _) = "Map"
 
 toSaList :: [SaVal] -> SaVal
 toSaList = foldr SaList (Primitive Nil)

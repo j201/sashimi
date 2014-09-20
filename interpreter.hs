@@ -66,13 +66,14 @@ evalClosure (Closure (Function bodies) fScope) args =
 
 evalFn :: SaVal -> [SaVal] -> SaVal
 evalFn (NativeFunction f) = f
-evalFn (TagFn fns mdef) = (\args -> case (args, mdef) of
+evalFn (TagFunction fns mdef) = (\args -> case (args, mdef) of
                                       ([], Just f) -> evalFn f []
                                       (((TaggedVal v tags):xs), _) -> case maybeHead $ filter (/= Nothing) $ map ((flip Strict.lookup) fns) tags of
                                                                         (Just (Just f)) -> evalFn f (v:xs)
                                                                         Nothing -> case mdef of { (Just f) -> evalFn f (v:xs) }
-                                      (xs, Just f) -> evalFn f xs)
-
+                                      (xs@(x:_), _) -> case Strict.lookup (defaultTag x) fns of
+                                                         (Just f) -> evalFn f xs
+                                                         Nothing -> case mdef of { (Just f) -> evalFn f xs })
 evalFn x = evalClosure x
 
 evalExpr :: Scope -> Expr -> SaVal
@@ -125,7 +126,7 @@ memberSaMap k (SaMap m) = member (Primitive $ Keyword k) m
 
 -- default state (for new modules), current program state, statement, new program state
 evalStatement :: Scope -> ProgState -> Statement -> ProgState
-evalStatement _ (ProgState ms m s) (Definition name expr) = ProgState ms m (insert name (evalExpr s expr) s) -- TODO: deal with TagFn
+evalStatement _ (ProgState ms m s) (Definition name expr) = ProgState ms m (insert name (evalExpr s expr) s) -- TODO: deal with TagFunction
 evalStatement defaultScope (ProgState ms (mName, mVal) s) (ModuleDeclaration newMName) = if mName /= ""
                                                                                          then ProgState (insert mName mVal ms) (newMName, SaMap empty) defaultScope
                                                                                          else ProgState ms (newMName, SaMap empty) defaultScope
@@ -134,10 +135,10 @@ evalStatement _ (ProgState ms (mName, mMap) s) (ExportedDefinition name expr) = 
                                                                                           x -> x
                                                                                 in ProgState ms (mName, insKW name val mMap) (insert name val s)
 evalStatement _ (ProgState ms (mName, mMap) s) (MethodDefinition tag fname expr) = let newTagFn = case Strict.lookup fname s of
-                                                                                                    (Just (TagFn hm def)) -> TagFn (insert tag (evalExpr s expr) hm) def
-                                                                                                    (Just nf@(NativeFunction _)) -> TagFn (insert tag (evalExpr s expr) empty) (Just nf)
-                                                                                                    (Just c@(Closure _ _)) -> TagFn (insert tag (evalExpr s expr) empty) (Just c)
-                                                                                                    Nothing -> TagFn (insert tag (evalExpr s expr) empty) Nothing
+                                                                                                    (Just (TagFunction hm def)) -> TagFunction (insert tag (evalExpr s expr) hm) def
+                                                                                                    (Just nf@(NativeFunction _)) -> TagFunction (insert tag (evalExpr s expr) empty) (Just nf)
+                                                                                                    (Just c@(Closure _ _)) -> TagFunction (insert tag (evalExpr s expr) empty) (Just c)
+                                                                                                    Nothing -> TagFunction (insert tag (evalExpr s expr) empty) Nothing
                                                                                    in ProgState ms
                                                                                                 (if memberSaMap fname mMap
                                                                                                  then (mName, insKW fname newTagFn mMap)
