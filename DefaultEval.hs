@@ -21,3 +21,12 @@ defaultScope = union nativeFnsScope $
 
 eval :: String -> Either ParseError SaVal
 eval s = fmap (evalExpr defaultScope) (parseExpr s)
+
+-- evals statements followed by an expression
+evals :: String -> Either ParseError SaVal
+evals s = fmap (\ss ->
+                  let (ProgState _ _ scope) = foldl (evalStatement defaultScope) emptyState $ init ss
+                  in case last ss of
+                      (Expression e) -> evalExpr scope e
+                      _ -> error "Last statement must be an expression")
+               (parseSashimi s)

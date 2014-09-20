@@ -4,7 +4,7 @@ import Parser
 import InterpreterTypes
 import Text.Parsec.Error
 import Data.Hashable
-import Data.HashMap.Lazy hiding (map, filter)
+import Data.HashMap.Lazy hiding (map, filter, foldr)
 import qualified Data.HashMap.Strict as Strict
 import Utils
 
@@ -59,7 +59,7 @@ evalClosure (Closure (Function bodies) fScope) args =
                                             unused = drop (min (length notRest) (length args)) bindings
                                         in foldl (\acc (FunctionBinding name def rest) ->
                                                     if rest
-                                                    then insert name (SaList $ drop (length notRest) args) acc
+                                                    then insert name (toSaList $ drop (length notRest) args) acc
                                                     else case def of { Just val -> insert name (evalExpr fScope val) acc })
                                                  passedArgs unused
     in evalExpr (union (resolveBindings bindings args) fScope) expr
@@ -77,7 +77,7 @@ evalFn x = evalClosure x
 
 evalExpr :: Scope -> Expr -> SaVal
 evalExpr s (Literal (Function bs)) = Closure (Function bs) s
-evalExpr s (Literal (List xs)) = SaList (map (evalExpr s) xs)
+evalExpr s (Literal (List xs)) = toSaList (map (evalExpr s) xs)
 evalExpr _ (Literal l) = Primitive l
 evalExpr s (Identifier i) = s ! i
 evalExpr s (IfExpr a b c) = if case unTag (evalExpr s a) of

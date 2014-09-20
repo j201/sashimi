@@ -221,7 +221,7 @@ saLeftRec = buildExpressionParser [[Postfix (try (spaces >> saKeyword) >>= \(Key
                                    [opInfix "**" AssocRight],
                                    [opInfix "*" AssocLeft, opInfix "/" AssocLeft],
                                    [opInfix "+" AssocLeft, opInfix "-" AssocLeft],
-                                   [opInfix ">" AssocLeft, opInfix "<" AssocLeft, opInfix ">=" AssocLeft, opInfix "<=" AssocLeft],
+                                   [opInfix ">=" AssocLeft, opInfix "<=" AssocLeft, opInfix ">" AssocLeft, opInfix "<" AssocLeft],
                                    [opInfix "==" AssocLeft, opInfix "!=" AssocLeft],
                                    [opInfix "&" AssocLeft],
                                    [opInfix "|" AssocLeft]]
@@ -243,6 +243,7 @@ saMethodDefinition = saIdentifier >>= \tag ->
                      saIdentifier >>= \name ->
                      spaces >> char '=' >>
                      saExpr >>= \expr ->
+                     char ';' >>
                      return (MethodDefinition tag name expr)
 
 saModuleDeclaration :: Parser Statement
