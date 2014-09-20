@@ -107,6 +107,7 @@ evalExpr s (BinaryOp "|" x y) = binOpBB (||) s x y
 evalExpr s (BinaryOp "~" x y) = case (evalExpr s x, evalExpr s y) of
                                   (TaggedVal v tags, Primitive (Keyword tag)) -> TaggedVal v (tag:tags)
                                   (v, Primitive (Keyword tag)) -> TaggedVal v [tag]
+evalExpr s (BinaryOp "^" x y) = case y of (FunctionCall f args) -> evalFn (evalExpr s f) (map (evalExpr s) $ x : args)
 evalExpr s (UnaryOp "!" x) = case unTag $ evalExpr s x of
                                (Primitive (Boolean b)) -> (Primitive $ Boolean $ not b)
 evalExpr s (UnaryOp "-" x) = case unTag $ evalExpr s x of
