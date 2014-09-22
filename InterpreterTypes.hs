@@ -1,4 +1,4 @@
-module InterpreterTypes (Scope, SaVal(..), toSaList, LazyListRet(..), defaultTag) where
+module InterpreterTypes (Scope, SaVal(..), toSaList, LazyListRet(..), defaultTag, toSaMap) where
 
 import Parser
 import Data.Hashable
@@ -67,3 +67,8 @@ defaultTag (SaMap _) = "Map"
 
 toSaList :: [SaVal] -> SaVal
 toSaList = foldr SaList (Primitive Nil)
+
+toSaMap :: [SaVal] -> SaVal
+toSaMap = let pairOff (x:y:xs) = (x, y) : (pairOff xs)
+              pairOff [] = []
+          in SaMap . Strict.fromList . pairOff

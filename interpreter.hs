@@ -8,7 +8,6 @@ import Data.HashMap.Lazy hiding (map, filter, foldr)
 import qualified Data.HashMap.Strict as Strict
 import Utils
 
--- todo: modules
 -- loaded modules, current module, current scope
 data ProgState = ProgState (HashMap String SaVal) (String, SaVal) Scope
 
@@ -79,6 +78,7 @@ evalFn x = evalClosure x
 evalExpr :: Scope -> Expr -> SaVal
 evalExpr s (Literal (Function bs)) = Closure (Function bs) s
 evalExpr s (Literal (List xs)) = toSaList (map (evalExpr s) xs)
+evalExpr s (Literal (Map xs)) = SaMap $ Strict.fromList $ map (\(x, y) -> ((evalExpr s x), (evalExpr s y))) xs
 evalExpr _ (Literal l) = Primitive l
 evalExpr s (Identifier i) = s ! i
 evalExpr s (IfExpr a b c) = if case unTag (evalExpr s a) of
