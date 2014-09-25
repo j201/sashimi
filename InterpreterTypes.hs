@@ -11,6 +11,12 @@ type Scope = HashMap String SaVal
 data LazyListRet = LazyListMore (SaVal, () -> SaVal)
                  | LazyListStrict SaVal
 
+strictList :: SaVal -> SaVal
+strictList (LazyList ll) = strictList $ LazyListRet $ ll()
+strictList (LazyListRet (LazyListMore (v, f))) = SaList v (strictList $ f())
+strictList (LazyListRet (LazyListStrict x)) = x
+strictList x = x
+
 instance Eq LazyListRet where
     LazyListStrict s1 == LazyListStrict s2 = s1 == s2
     LazyListMore (x1, xs1) == LazyListMore (x2, xs2) = x1 == x2 && xs1() == xs2()
@@ -19,6 +25,9 @@ instance Eq LazyListRet where
 instance Show LazyListRet where
     show (LazyListMore (x, xs)) = show x ++ ":" ++ show (xs())
     show (LazyListStrict s) = show s
+
+instance Hashable LazyListRet where
+    hashWithSalt n llr = hashWithSalt n (strictList $ LazyListRet llr)
 
 data SaVal = Primitive Literal
            | Closure Literal Scope
@@ -49,8 +58,15 @@ instance Show SaVal where
 
 -- TODO: complete
 instance Hashable SaVal where
-    hashWithSalt n (Primitive (String s)) = hashWithSalt n s
-    hashWithSalt n (Primitive (Keyword s)) = hashWithSalt n ('.' : s)
+    hashWithSalt n (Primitive (String s)) = hashWithSalt n ('s' : s)
+    hashWithSalt n (Primitive (Keyword s)) = hashWithSalt n ('k' : s)
+    hashWithSalt n (Primitive (Number x)) = hashWithSalt n ('n' : show x)
+    hashWithSalt n (Primitive (Regex s)) = hashWithSalt n ('r' : s)
+    hashWithSalt n (Primitive Nil) = hashWithSalt n "Nil"
+    hashWithSalt n (Primitive (Boolean b)) = hashWithSalt n ('b' : show b)
+    hashWithSalt n (SaList x xs) = hashWithSalt n x + hashWithSalt n xs
+    hashWithSalt n (SaMap xs) = Strict.foldl' (flip $ (+) . (hashWithSalt n)) 0 xs
+    hashWithSalt n (LazyList ll) = hashWithSalt n $ ll()
 
 defaultTag :: SaVal -> String
 defaultTag (Primitive Nil) ="Nil"

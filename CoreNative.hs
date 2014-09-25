@@ -19,6 +19,11 @@ saRest (LazyList ll) = case ll() of
                          LazyListMore t -> (snd $ t) ()
                          LazyListStrict s -> saRest s
 
+saListGet :: Int -> SaVal -> SaVal
+saListGet n (SaList x xs) = if n < 1
+                            then x
+                            else saListGet (n-1) xs
+
 nativeFns :: SaVal
 nativeFns = SaMap $ Strict.fromList $
             map (\(a,b) -> (Primitive $ Keyword a, NativeFunction b)) $
@@ -33,5 +38,11 @@ nativeFns = SaMap $ Strict.fromList $
 
              ("lazyList", \[f] -> LazyList (\_ -> case evalFn f [] of
                                                     LazyListRet r -> r
-                                                    x -> LazyListStrict x))
+                                                    x -> LazyListStrict x)),
+
+             ("get", \args -> case args of
+                                [(SaMap m), k] -> case Strict.lookup k m of
+                                                   (Just x) -> x
+                                                   Nothing -> Primitive Nil
+                                [xs@(SaList _ _), (Primitive (Number n))] -> saListGet (floor n) xs)
             ]
