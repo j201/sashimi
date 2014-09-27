@@ -13,7 +13,7 @@ saFirst (LazyList ll) = case ll() of
                           LazyListMore t -> fst $ t
                           LazyListStrict s -> saFirst s
 
-saRest (Primitive Nil) = Primitive Nil
+saRest EmptyList = EmptyList
 saRest (SaList _ xs) = xs
 saRest (LazyList ll) = case ll() of
                          LazyListMore t -> (snd $ t) ()

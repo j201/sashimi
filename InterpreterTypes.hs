@@ -32,6 +32,7 @@ instance Hashable LazyListRet where
 data SaVal = Primitive Literal
            | Closure Literal Scope
            | SaList SaVal SaVal
+           | EmptyList
            | LazyListRet LazyListRet
            | LazyList (() -> LazyListRet) -- the function should return a list where the first element is the first LazyList element, and the second is a function that returns the rest
            | SaMap (Strict.HashMap SaVal SaVal)
@@ -42,7 +43,16 @@ data SaVal = Primitive Literal
 instance Eq SaVal where
     (Primitive l1) == (Primitive l2) = l1 == l2
     (SaList x1 xs1) == (SaList x2 xs2) = x1 == x2 && xs1 == xs2
+    EmptyList == EmptyList = True
+    EmptyList == (LazyList ll) = case ll() of
+                                   (LazyListStrict xsl) -> xsl == EmptyList
+                                   _ -> False
+    ll@(LazyList _) == EmptyList = EmptyList == ll
     (LazyList ll1) == (LazyList ll2) = ll1() == ll2()
+    sl@(SaList x xs) == (LazyList ll) = case ll() of
+                                         (LazyListMore (xl, xsl)) -> x == xl && xs == xsl()
+                                         (LazyListStrict xsl) -> sl == xsl
+    ll@(LazyList _) == sl@(SaList _ _) = sl == ll
     (SaMap m1) == (SaMap m2) = m1 == m2
     -- TODO: include default tags, should all tags match? (i think so)
     -- (TaggedVal v1 tags1) == (TaggedVal v2 tags2) = v1 == v2 && head tags1 == head tags2
@@ -52,8 +62,11 @@ instance Eq SaVal where
 instance Show SaVal where
     show (Primitive v) = show v
     show (Closure v _) = show v
-    show (SaList x xs) = show x ++ ":" ++ show xs
-    show (LazyList ll) = show $ ll()
+    show xs@(SaList _ _) = "[" ++ commaJoinList xs ++ "]"
+      where commaJoinList (SaList x EmptyList) = show x
+            commaJoinList (SaList x xs) = show x ++ ", " ++ commaJoinList xs
+    show EmptyList = "[]"
+    show ll@(LazyList _) = show $ strictList ll
     show (NativeFunction _) = "(native)"
 
 -- TODO: complete
@@ -65,8 +78,9 @@ instance Hashable SaVal where
     hashWithSalt n (Primitive Nil) = hashWithSalt n "Nil"
     hashWithSalt n (Primitive (Boolean b)) = hashWithSalt n ('b' : show b)
     hashWithSalt n (SaList x xs) = hashWithSalt n x + hashWithSalt n xs
+    hashWithSalt n EmptyList = hashWithSalt n "EmptyList"
     hashWithSalt n (SaMap xs) = Strict.foldl' (flip $ (+) . (hashWithSalt n)) 0 xs
-    hashWithSalt n (LazyList ll) = hashWithSalt n $ ll()
+    hashWithSalt n ll@(LazyList _) = hashWithSalt n $ strictList ll
 
 defaultTag :: SaVal -> String
 defaultTag (Primitive Nil) ="Nil"
@@ -79,10 +93,11 @@ defaultTag (Closure _ _) = "Function"
 defaultTag (NativeFunction _) = "Function"
 defaultTag (TagFunction _ _) = "Function"
 defaultTag (SaList _ _) = "List"
+defaultTag EmptyList = "List"
 defaultTag (SaMap _) = "Map"
 
 toSaList :: [SaVal] -> SaVal
-toSaList = foldr SaList (Primitive Nil)
+toSaList = foldr SaList EmptyList
 
 toSaMap :: [SaVal] -> SaVal
 toSaMap = let pairOff (x:y:xs) = (x, y) : (pairOff xs)
