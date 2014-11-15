@@ -2,7 +2,7 @@
 
 ##Values
 
-Sashimi values have a primary value, which they evaluate to as an expression on their own, and internal properties. An identifier preceded by `..` represents an internal property attached to a value. It should not be directly accessible by Sashimi code. For example, `foo..bar` represents the internal `bar` property on `foo`.
+Sashimi values have a primary value, which they evaluate to as an expression on their own, and internal properties. An identifier preceded by `.:` represents an internal property attached to a value. It should not be directly accessible by Sashimi code. For example, `foo.:bar` represents the internal `bar` property on `foo`.
 
 ##Value Types
 
@@ -27,6 +27,10 @@ Parsed as a JS regex, although the supported functions are different.
 ###Keyword
 
 A value that is only equal to the same keyword.
+
+###Tag
+
+A combination of a string representing a module and a keyword.
 
 ###Boolean
 
@@ -80,6 +84,10 @@ The symbol `true` or `false`
 
 The `.` character followed by a sequence of letters, numbers, or underscores.
 
+###Tag
+
+A string literal followed by `.`, followed by a keyword literal. (E.g., `"my-module"..Foo`)
+
 ###Set
 
 A series of expressions separated by commas and surrounded by the tokens `#{` and `}`.
@@ -128,19 +136,19 @@ In addition to the literals and operators, the following tokens are reserved:
 
 Any sequence of letters, numbers, and underscores that is not a literal or reserved word is an identifier.
 
-##The `..tag` Stack
+##The `.:tag` Stack
 
-All values have an internal `..tag` property that is a stack of keywords. It supports the following abstract operations:
+All values have an internal `.:tag` property that is a stack of keywords. It supports the following abstract operations:
 TODO: remove unused operations
 
-- `withTag(value, tagName)` - Evaluates to a value that is the same as `value`, but with `tagName` pushed to its `..tag` stack.
-- `push(value..tag, tagName)` - Adds the `tagName` keyword to the top of the `..tag` stack.
-- `first(value..tag)` - Returns the top tag keyword on the `..tag` stack.
-- `next(value..tag)` - Returns the `..tag` stack without the top keyword.
-- `has(value..tag, str)` - Returns `true` if the keyword in the second parameter is one of the elements of the `..tag` stack, else false.
-- `empty(value..tag)` - Returns `true` if there are no keywords in the `..tag` stack, else `false`.
+- `withTag(value, tagName)` - Evaluates to a value that is the same as `value`, but with `tagName` pushed to its `.:tag` stack.
+- `push(value.:tag, tagName)` - Adds the `tagName` keyword to the top of the `.:tag` stack.
+- `first(value.:tag)` - Returns the top tag keyword on the `.:tag` stack.
+- `next(value.:tag)` - Returns the `.:tag` stack without the top keyword.
+- `has(value.:tag, str)` - Returns `true` if the keyword in the second parameter is one of the elements of the `.:tag` stack, else false.
+- `empty(value.:tag)` - Returns `true` if there are no keywords in the `.:tag` stack, else `false`.
 
-###Default `..tag` Values
+###Default `.:tag` Values
 
 Unless otherwise modified, the following primitive values have the following single value on their tag stacks:
 
@@ -204,7 +212,7 @@ A let expression creates a new scope with the identifiers listed in the letBindi
 
 `expression` `keyword`
 
-Equivalent to the function call `expression(keyword)`. If the result of evaluating `expression` does not have `Map` in its `..tag` stack, an error is thrown.
+Equivalent to the function call `expression(keyword)`. If the result of evaluating `expression` does not have `Map` in its `.:tag` stack, an error is thrown.
 
 ###Binary Operation
 
@@ -220,7 +228,7 @@ Where operator is one of the following:
 - `==`:
 	- Let `o1` be the result of evaluating the first operand and `o2` be the result of evaluating the second.
 	- If `o1` and `o2` have a different value type, evaluates to `false`.
-	- If `first(o1..tag)` and `first(o2..tag)` are not the same string, evaluates to `false`.
+	- If `first(o1.:tag)` and `first(o2.:tag)` are not the same string, evaluates to `false`.
 	- If the values of `o1` and `o2` are equivalent (value equality), evaluates to `true`.
 	- Evaluates to `false`.
 - `!=`: Evaluates to the opposite boolean value of the result of evaluating the operands with `==`.
@@ -290,7 +298,7 @@ If the given identifier is already defined in the scope, an error is thrown. Oth
 - If the second identifier is bound to a value other than a function, an error is thrown.
 - If the second identifier is not bound, then it is bound to a new instance of the function `fn: nil`.
 - If the first identifier is not bound to a tag function, an error is thrown.
-- Let `f` be the function identified by the second identifier and `t` be the `..returnTag` of the tag function identified by the first identifier.
+- Let `f` be the function identified by the second identifier and `t` be the `.:returnTag` of the tag function identified by the first identifier.
 - If `f` already has a method definition for `t`, an error is thrown.
 - Let `v` be the result of evaluating the expression.
 - If `v` is not a function, an error is thrown.
