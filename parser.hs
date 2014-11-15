@@ -117,8 +117,11 @@ saLiteral = saNumber <|> try saBoolean <|> saRegex <|> saKeyword <|> saString <|
 saNonLeftRec :: Parser Expr
 saNonLeftRec = saExprGroup <|> try saImportExpr <|> try saIfExpr <|> try saLetExpr <|> liftM Literal saLiteral <|> liftM Identifier saIdentifier
 
+skipAround :: Parser a -> Parser b -> Parser b
+skipAround p1 p2 = p1 >> p2 <* p1
+
 spaced :: Parser a -> Parser a
-spaced p = spaces >> p <* spaces
+spaced = skipAround spaces
 
 delimited :: Parser [Expr]
 delimited = sepBy saExpr (spaced $ char ',') 
@@ -211,13 +214,14 @@ opPrefix op = Prefix (try (spaces >> string op) >> spaces >> return (\o -> Unary
 
 saLeftRec :: Parser Expr
 saLeftRec = buildExpressionParser [[Postfix (try (spaces >> saKeyword) >>= \(Keyword kw) -> return (\o -> MapAccess o kw))],
-                                   [opInfix "^" AssocLeft],
+                                   [opInfix "~" AssocLeft],
                                    [Postfix (try (spaces >> saExprGroup) >>=  \(ExprGroup args) -> return (\fn -> FunctionCall fn args))],
+                                   [opInfix "^" AssocLeft],
                                    [opPrefix "-", opPrefix "!"],
                                    [opInfix "**" AssocRight],
                                    [opInfix "*" AssocLeft, opInfix "/" AssocLeft],
                                    [opInfix "+" AssocLeft, opInfix "-" AssocLeft],
-                                   [opInfix ">" AssocLeft, opInfix "<" AssocLeft, opInfix ">=" AssocLeft, opInfix "<=" AssocLeft],
+                                   [opInfix ">=" AssocLeft, opInfix "<=" AssocLeft, opInfix ">" AssocLeft, opInfix "<" AssocLeft],
                                    [opInfix "==" AssocLeft, opInfix "!=" AssocLeft],
                                    [opInfix "&" AssocLeft],
                                    [opInfix "|" AssocLeft]]
@@ -239,6 +243,7 @@ saMethodDefinition = saIdentifier >>= \tag ->
                      saIdentifier >>= \name ->
                      spaces >> char '=' >>
                      saExpr >>= \expr ->
+                     char ';' >>
                      return (MethodDefinition tag name expr)
 
 saModuleDeclaration :: Parser Statement
@@ -276,8 +281,14 @@ saExpression = saExpr >>= \expr ->
 saStatement :: Parser Statement
 saStatement = try saDefinition <|> try saMethodDefinition <|> try saModuleDeclaration <|> try saModuleExport <|> try saExportedDefinition <|> try saImportStatement <|> saExpression
 
+saComments :: Parser ()
+saComments = skipMany $
+             string "//" >>
+             manyTill anyChar (char '\n') >>
+             return ()
+
 sashimiParser :: Parser [Statement]
-sashimiParser = many (spaced saStatement) <* eof
+sashimiParser = many (skipAround (try $ spaced saComments) $ spaced saStatement) <* eof
 
 parseSashimi :: String -> Either ParseError [Statement]
 parseSashimi = parse sashimiParser "Sashimi"

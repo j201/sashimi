@@ -8,31 +8,41 @@ import qualified Data.HashMap.Strict as Strict
 
 commaJoin = foldl1 (\s x -> s ++ ", " ++ x)
 
+saFirst (SaList x _) = x
+saFirst (LazyList ll) = case ll() of
+                          LazyListMore t -> fst $ t
+                          LazyListStrict s -> saFirst s
+
+saRest EmptyList = EmptyList
+saRest (SaList _ xs) = xs
+saRest (LazyList ll) = case ll() of
+                         LazyListMore t -> (snd $ t) ()
+                         LazyListStrict s -> saRest s
+
+saListGet :: Int -> SaVal -> SaVal
+saListGet n (SaList x xs) = if n < 1
+                            then x
+                            else saListGet (n-1) xs
+
 nativeFns :: SaVal
 nativeFns = SaMap $ Strict.fromList $
             map (\(a,b) -> (Primitive $ Keyword a, NativeFunction b)) $
             [
-             ("first", \[(SaList xs)] -> head xs),
+             ("first", \[arg] -> saFirst arg),
 
-             ("rest", \[(SaList xs)] -> SaList $ tail xs),
+             ("rest", \[arg] -> saRest arg),
 
-             ("empty", \[(SaList xs)] -> Primitive $ Boolean $ xs == []),
+             ("cons", \[x, xs] -> SaList x xs),
 
-             ("cons", \[x, (SaList xs)] -> SaList (x:xs)),
+             ("lazyCons", \[x, f] -> LazyListRet $ LazyListMore (x, \_ -> (evalFn f) [])),
 
-             ("reduce", \args -> case args of
-                                   [(SaList xs), i, f] -> foldl (\a b -> (evalFn f) [b, a]) i xs -- Not sure if this will reevaluate (evalFn f)
-                                   [(SaList (x:xs)), f] -> foldl (\a b -> (evalFn f) [b, a]) x xs
-                                   [(SaList []), f] -> (evalFn f) []),
-                                   
-             ("reduceRight", \args -> case args of
-                                   [(SaList xs), i, f] -> foldr (\a b -> (evalFn f) [b, a]) i xs
-                                   [(SaList (x:xs)), f] -> foldr (\a b -> (evalFn f) [b, a]) x xs
-                                   [(SaList []), f] -> (evalFn f) []),
-                                   
-             ("range", \args -> case args of
-                                  [(Primitive (Number x)), (Primitive (Number y)), (Primitive (Number z))] -> SaList $ map (Primitive . Number) [x,(x+z)..(y-1)] -- TODO: haskell does silly overshoot stuff (see [0,2..9.0])
-                                  [(Primitive (Number x)), (Primitive (Number y))] -> SaList $ map (Primitive . Number) [x..(y-1)]
-                                  [(Primitive (Number x))] -> SaList $ map (Primitive . Number) [x..]
-                                  [] -> SaList $ map (Primitive . Number) [0..])
+             ("lazyList", \[f] -> LazyList (\_ -> case evalFn f [] of
+                                                    LazyListRet r -> r
+                                                    x -> LazyListStrict x)),
+
+             ("get", \args -> case args of
+                                [(SaMap m), k] -> case Strict.lookup k m of
+                                                   (Just x) -> x
+                                                   Nothing -> Primitive Nil
+                                [xs@(SaList _ _), (Primitive (Number n))] -> saListGet (floor n) xs)
             ]
