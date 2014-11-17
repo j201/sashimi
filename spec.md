@@ -60,6 +60,10 @@ Equivalent to a JS function, except can have method definitions (alternate funct
 
 Literals have precedence in the following order
 
+###Tag
+
+A string literal followed by `.`, followed by a keyword literal. (E.g., `"my-module"..Foo`)
+
 ###String
 
 Equivalent to JS string literals, except that the apostrophe character cannot be used as the delimiter, only quotation marks.
@@ -83,10 +87,6 @@ The symbol `true` or `false`
 ###Keyword
 
 The `.` character followed by a sequence of letters, numbers, or underscores.
-
-###Tag
-
-A string literal followed by `.`, followed by a keyword literal. (E.g., `"my-module"..Foo`)
 
 ###Set
 
@@ -112,7 +112,7 @@ Function literal ::= `fn` fnBody | `fn` `[` fnBodies `]`
 fnBodies ::= fnBody | fnBodies `,` fnBody  
 fnBody ::= fnBindings `:` expression | `:` expression  
 fnBindings ::= nonRestParams | nonRestParams restParams | restParams  
-nonRestParams ::= nonRestParam | nonRestParams restParam  
+nonRestParams ::= nonRestParam | nonRestParams nonRestParam | nonRestParams restParam  
 nonRestParam ::= identifier | identifier `,` | identifier `=` expression | identifier `=` expression `,`  
 restParam ::= `&` identifier
 
@@ -154,19 +154,18 @@ Unless otherwise modified, the following primitive values have the following sin
 
 Value Type | tag stack Value
 --- | ---
-Nil | .Nil
-String | .String
-Number | .Number
-Regex | .Regex
-Keyword | .Keyword
-Boolean | .Boolean
-Map | .Map
-Bag | .Bag
-Set | .Set
-List | .List
-Function | .Function
-
-All of the above tag stack values are always considered to exist in any namespace and cannot be redefined with a tag declaration.
+Nil | "sashimi.core"..Nil
+String | "sashimi.core"..String
+Number | "sashimi.core"..Number
+Regex | "sashimi.core"..Regex
+Keyword | "sashimi.core"..Keyword
+Tag | "sashimi.core"..Tag
+Boolean | "sashimi.core"..Boolean
+Map | "sashimi.core"..Map
+Bag | "sashimi.core"..Bag
+Set | "sashimi.core"..Set
+List | "sashimi.core"..List
+Function | "sashimi.core"..Function
 
 ##Scope
 
@@ -290,6 +289,18 @@ A statement is one of the following:
 
 If the given identifier is already defined in the scope, an error is thrown. Otherwise, the expression is evaluated and its value is assigned to the given identifier.
 
+###Tag Definition
+
+`'tag'` `identifier` `;`
+
+Equivalent to `<identifier> = "<module>"..<identifier>;`, where `<identifier>` is the identifier in the tag definition statement and `<module>` is the name of the current module.
+
+###Exported Tag Definition
+
+`'export'` `'tag'` `identifier` `;`
+
+Equivalent to `export <identifier> = "<module>"..<identifier>;`, where `<identifier>` is the identifier in the tag definition statement and `<module>` is the name of the current module.
+
 ###Method Definition
 
 `identifier` `#` `identifier` `=` `expression` `;`
@@ -327,6 +338,18 @@ If there have been any module export statements or exported definitions in the c
 - If `k` exists as a key in `e`, an exception is thrown.
 - `k` is added as a ky to `e` with the value of the expression.
 
+###Use Statement
+
+Use Statement ::= `'use'` `string literal` importEnd
+importEnd ::= `;` | `'only'` keyList `;` | `'except'` keyList `;`
+keyList ::= `identifier` | keyList `,` `identifier`
+
+- A use statement where importEnd is `;` imports all keyword properties of the module named by the string literal as non-exported identifiers in the current namespace, where the identifiers have the same name as the keyword text.
+- A use statement with `only` should act as a use statement where importEnd is `;` except only importing the properties named in the `keyList`.
+- A use statement with `except` should act as a use statement where importEnd is `;` except without importing the properties named in the `keyList`.
+
+TODO: How should this work with parameterized modules? Maybe a function to transform the module?
+
 ###Expression Statement
 
 `expression` `;`
@@ -338,6 +361,8 @@ If a statement is a valid expression and cannot be parsed as another type of sta
 Sashimi code can either be executed on its own or within a module. A module is a section of code started with a module statement and terminated by another module statement or the end of the code file. When a module is started, all bindings are cleared except those in the core library. The export value of a module, as specified by a module export statements or by exported definitions, is saved for the duration of the execution of the program importing the module. A module can be imported by an import expression. A module must not be executed more than once during the execution of a program and it must not be executed unless imported or specified as the program entry point. It is recommended that modules be split up into separate files and then compiled together. How these files are specified is implementation-dependent. If modules have circular dependencies, an error is thrown.
 
 ##Core Functions
+
+TODO: These should instead be in a core module.
 
 The following functions are defined by default. A collection is a value that is a map, bag, set, or list (regardless of its tag). The following syntax is used:
 
