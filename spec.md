@@ -138,12 +138,12 @@ Any sequence of letters, numbers, and underscores that is not a literal or reser
 
 ##The `.:tag` Stack
 
-All values have an internal `.:tag` property that is a stack of keywords. It supports the following abstract operations:
+All values have an internal `.:tag` property that is a stack of tags. It supports the following abstract operations:
 TODO: remove unused operations
 
-- `withTag(value, tagName)` - Evaluates to a value that is the same as `value`, but with `tagName` pushed to its `.:tag` stack.
-- `push(value.:tag, tagName)` - Adds the `tagName` keyword to the top of the `.:tag` stack.
-- `first(value.:tag)` - Returns the top tag keyword on the `.:tag` stack.
+- `withTag(value, tag)` - Evaluates to a value that is the same as `value`, but with `tag` pushed to its `.:tag` stack.
+- `push(value.:tag, tag)` - Adds the `tag` tag to the top of the `.:tag` stack.
+- `first(value.:tag)` - Returns the top tag on the `.:tag` stack.
 - `next(value.:tag)` - Returns the `.:tag` stack without the top keyword.
 - `has(value.:tag, str)` - Returns `true` if the keyword in the second parameter is one of the elements of the `.:tag` stack, else false.
 - `empty(value.:tag)` - Returns `true` if there are no keywords in the `.:tag` stack, else `false`.
@@ -166,6 +166,10 @@ Bag | "sashimi.core"..Bag
 Set | "sashimi.core"..Set
 List | "sashimi.core"..List
 Function | "sashimi.core"..Function
+
+###`buildTag`
+
+`buildTag(moduleName, keyword)` is an abstract operation that returns the equivalent tag containing the string `moduleName` and the keyword `keyword`.
 
 ##Scope
 
@@ -231,7 +235,11 @@ Where operator is one of the following:
 	- If the values of `o1` and `o2` are equivalent (value equality), evaluates to `true`.
 	- Evaluates to `false`.
 - `!=`: Evaluates to the opposite boolean value of the result of evaluating the operands with `==`.
-- `~`: If the result of evaluating the second operand is not a keyword, an error is thrown, otherwise evaluates to `withTag(<first operand>, <second operand>)`
+- `~`:
+	- If the result of evaluating the second operand is a tag, evaluates to `withTag(<first operand>, <second operand>)`.
+	- If the result of evaluating the second operand is a keyword, evaluates to `withTag(<first operand>, buildTag(<current module name>, <second operand>))`.
+		- If the context is not a named module, the string `""` is used as the current module name.
+	- Otherwise, an error is thrown
 
 ###Unary Operation
 
@@ -302,6 +310,8 @@ Equivalent to `<identifier> = "<module>"..<identifier>;`, where `<identifier>` i
 Equivalent to `export <identifier> = "<module>"..<identifier>;`, where `<identifier>` is the identifier in the tag definition statement and `<module>` is the name of the current module.
 
 ###Method Definition
+
+TODO: update for the new tag setup
 
 `identifier` `#` `identifier` `=` `expression` `;`
 

@@ -38,6 +38,7 @@ data Literal = String String
              | Boolean Bool
              | Regex String
              | Keyword String
+             | Tag String String
              | Nil
              | Map [(Expr, Expr)]
              | Bag [Expr]
@@ -52,7 +53,8 @@ instance Show Literal where
     show (String s) = "\"" ++ s ++ "\""
     show (Number n) = show n
     show (Boolean b) = show b
-    show (Keyword k) = ':' : k
+    show (Keyword k) = '.' : k
+    show (Tag m k) = "\"" ++ m ++ "\".." ++ k
     show Nil = "nil"
     show (Map m) = "{" ++ (commaJoin $ map (\(k, v) -> show k ++ ", " ++ show v) m) ++ "}"
     show (Bag b) = "#[" ++ commaJoin (map show b) ++ "]"
@@ -107,6 +109,12 @@ saRegex = liftM Regex $
 
 saKeyword :: Parser Literal
 saKeyword = liftM Keyword $ char '.' >> many1 (alphaNum <|> char '_')
+
+saTag :: Parser Literal
+saTag = saString <*
+        string ".." >>= \(String s) ->
+        saKeyword >>= \(Keyword k) ->
+        return $ Tag s k
 
 saNil :: Parser Literal
 saNil = string "nil" >> notFollowedBy (alphaNum <|> char '_') >> return Nil
